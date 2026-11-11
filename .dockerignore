@@ -1,0 +1,12 @@
+.git
+.agents
+.codex
+.aws
+.qodo
+node_modules
+.env
+.env.*
+!.env.example
+.verification
+coverage
+*.log

@@ -1,0 +1,247 @@
+@import 'leaflet/dist/leaflet.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 14% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 40 49% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 10% 94%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 40 10% 95%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 40 49% 47%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 40 49% 47%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+  
+  html {
+    scroll-behavior: smooth;
+    color-scheme: light;
+    width: 100%;
+    min-width: 100%;
+  }
+
+  body {
+    background-color: #F9F9F8;
+    color: #1E293B;
+    overflow-x: clip;
+    width: 100%;
+    min-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Custom luxury scrollbar for light theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #F2F2EF;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9E7B36;
+  }
+}
+
+@layer components {
+  .glass-header {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: rgba(255, 255, 255, 0.96);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  }
+
+  .glass-card {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+  }
+
+  .glass-card-elevated {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.07);
+  }
+
+  .glass-pill {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .gold-gradient-text {
+    background: linear-gradient(135deg, #0A0A0C 0%, #1E293B 40%, #9E7B36 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .bronze-glow {
+    box-shadow: 0 0 35px -5px rgba(158, 123, 54, 0.20);
+  }
+
+  .gold-border-glow {
+    border: 1px solid rgba(158, 123, 54, 0.35);
+    box-shadow: 0 0 20px rgba(158, 123, 54, 0.12);
+  }
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Scroll Reel Testimonials Animations */
+@keyframes scroll-reel-char-rise {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scroll-reel-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+.scroll-reel-char {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: scroll-reel-char-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.scroll-reel-exit {
+  animation: scroll-reel-exit 0.24s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+/* Map custom Leaflet marker and popup styles matching Novalux design */
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-property-popup .leaflet-popup-content-wrapper {
+  padding: 0 !important;
+  background: #ffffff !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.25), 0 0 1px 1px rgba(0, 0, 0, 0.08) !important;
+  border: none !important;
+}
+
+.custom-property-popup .leaflet-popup-content {
+  margin: 0 !important;
+  line-height: normal !important;
+  width: auto !important;
+}
+
+.custom-property-popup .leaflet-popup-tip-container {
+  margin-top: -1px;
+}
+
+.custom-property-popup .leaflet-popup-tip {
+  background: #ffffff !important;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.custom-property-popup .leaflet-popup-close-button {
+  display: none !important;
+}
+
+.map-price-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #111827;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translate(-50%, -100%);
+  user-select: none;
+}
+
+.map-price-pin::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #ffffff;
+}
+
+.map-price-pin:hover,
+.map-price-pin.is-active {
+  background-color: #000000;
+  color: #ffffff;
+  border-color: #000000;
+  transform: translate(-50%, -105%) scale(1.08);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  z-index: 9999 !important;
+}
+
+.map-price-pin:hover::after,
+.map-price-pin.is-active::after {
+  border-top-color: #000000;
+}
+
+/* Mobile full-screen map zoom control offset */
+@media (max-width: 767px) {
+  .leaflet-top.leaflet-left {
+    top: 130px !important;
+  }
+}
+
+
