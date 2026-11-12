@@ -304,13 +304,18 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
 
         {/* Bottom Bar: Powered by Brokbuddy (Footer BB Tag) & License */}
         <div className="pt-2 sm:pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#71717A]">
-          <div className="flex items-center justify-center sm:justify-start">
+          <a
+            href="https://brokbuddy.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center sm:justify-start"
+          >
             <img
               src="/footer-bb-tag.png"
               alt="Powered by Brokbuddy"
               className="h-7 sm:h-8 md:h-9 w-auto object-contain block"
             />
-          </div>
+          </a>
 
           <div className="hidden sm:block text-right font-light">
             Licensed ID - {AGENTS[0]?.licenseId}
