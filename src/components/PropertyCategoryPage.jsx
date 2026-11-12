@@ -327,8 +327,8 @@ export default function PropertyCategoryPage({
               </p>
             </div>
 
-            {/* CATEGORY SWITCHER TABS (Buy, Rent) - Placed in the right side */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-1.5 bg-white/10 backdrop-blur-md rounded-[12px] border border-white/10 w-fit shrink-0 self-start lg:self-end">
+            {/* Keep every category on one row, including narrow mobile screens. */}
+            <div role="group" aria-label="Listing categories" className="flex flex-nowrap items-center gap-1 sm:gap-3 p-1.5 bg-white/10 backdrop-blur-md rounded-[12px] border border-white/10 w-full sm:w-fit max-w-full overflow-x-auto shrink-0 self-start lg:self-end">
               {PROPERTY_MARKET_CATEGORIES.map((tab) => {
                 const isActive = tab.id === category;
                 const count = getCategoryCount(tab.id);
@@ -336,14 +336,14 @@ export default function PropertyCategoryPage({
                   <button
                     key={tab.id}
                     onClick={() => onNavigate(tab.path)}
-                    className={`px-4 sm:px-5 py-2.5 rounded-[9px] text-[13px] sm:text-[14px] font-medium transition-all duration-200 flex items-center gap-2.5 select-none cursor-pointer ${
+                    className={`flex-1 sm:flex-none shrink-0 px-2 sm:px-5 py-2.5 rounded-[9px] text-[12px] sm:text-[14px] font-medium transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2.5 whitespace-nowrap select-none cursor-pointer ${
                       isActive
-                        ? 'bg-white text-black shadow-md font-semibold scale-[1.02]'
+                        ? 'bg-white text-black shadow-md font-semibold'
                         : 'text-white/80 hover:text-white hover:bg-white/10'
                     }`}
                   >
                     <span>{tab.label}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    <span className={`shrink-0 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       isActive ? 'bg-black text-white' : 'bg-white/20 text-white'
                     }`}>
                       {count}
