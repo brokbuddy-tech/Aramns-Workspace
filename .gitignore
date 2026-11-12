@@ -6,6 +6,7 @@ dist/
 .verification/
 coverage/
 *.log
+.vercel/
 .agents/
 .codex/
 .aws/

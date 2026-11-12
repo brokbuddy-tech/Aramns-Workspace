@@ -96,7 +96,7 @@ An ultra-luxury real estate web application inspired by the modern, minimalist a
 ## 3. Getting Started
 
 ### Prerequisites
-- Node.js (v18+ or v20+)
+- Node.js 22+
 - npm
 
 ### Installation & Development
@@ -118,3 +118,5 @@ The application will be running at `http://127.0.0.1:3000/`.
 ## BrokBuddy server integration
 
 This template now requires its Node server for broker data and enquiries. See [integration setup, environment settings, deployment prerequisites and limitations](docs/INTEGRATION.md) and the [verification report](docs/VERIFICATION.md). Run `npm run dev` locally, or `npm run build` followed by `npm start` for production. Real environment files must stay server-only and out of source uploads.
+
+For Vercel, follow [the deployment guide](docs/VERCEL.md). The Vite frontend and server API deploy together using the included Vercel function and routing configuration.

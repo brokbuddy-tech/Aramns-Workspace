@@ -32,7 +32,7 @@ npm start
 
 `npm run preview` also starts the production Node server. A standalone Vite preview/static host does not provide the required API. Reverse proxies must preserve the public Host header, terminate HTTPS, and route `/api/*` to Node. Browser enquiries must have an exact same-host HTTP(S) Origin. The app does not trust forwarded origin/host values supplied by a request.
 
-Do not upload `.env` or other real environment files. `.gitignore`, `.dockerignore`, and `.vercelignore` exclude them and the verification snapshots. The supplied `.env.example` contains placeholders only. On a managed platform, configure secrets through its server runtime environment. This checkout currently provides a Node deployment target; it does not add a Vercel serverless adapter or deploy anything.
+Do not upload `.env` or other real environment files. `.gitignore`, `.dockerignore`, and `.vercelignore` exclude them and the verification snapshots. The supplied `.env.example` contains placeholders only. On a managed platform, configure secrets through its server runtime environment. The standalone Node deployment target remains available; Vercel uses `api/index.mjs` to run the same API handler as a function alongside the static frontend. See [Vercel deployment](VERCEL.md).
 
 ## API and publication prerequisites
 
