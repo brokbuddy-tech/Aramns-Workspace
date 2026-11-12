@@ -4,8 +4,8 @@ import {createBrokerClient,getConfig,mapListing,mapAgent,publicAsset} from '../s
 import {env,agent,listing,mockApi} from './fixtures.mjs';
 const create=mock=>createBrokerClient({env,fetchImpl:mock.fetchImpl});
 test('loads complete pagination rather than the two-listing profile preview',async()=>{
- const mock=mockApi();const data=await create(mock).site();assert.equal(data.properties.length,27);assert.equal(data.agent.name,'Test Broker');assert.equal(data.agent.licenseId,'BRN-123');assert.equal(data.agent.careerVolume,'—');assert.deepEqual(data.agent.testimonials,[]);
- assert.deepEqual(mock.calls.filter(x=>x.url.pathname.endsWith('/listings')).map(x=>x.url.search),'?page=1&limit=12 ?page=2&limit=12 ?page=3&limit=12'.split(' '));
+ const mock=mockApi({count:227});const data=await create(mock).site();assert.equal(data.properties.length,227);assert.equal(data.agent.name,'Test Broker');assert.equal(data.agent.licenseId,'BRN-123');assert.equal(data.agent.careerVolume,'—');assert.deepEqual(data.agent.testimonials,[]);
+ assert.deepEqual(mock.calls.filter(x=>x.url.pathname.endsWith('/listings')).map(x=>x.url.search),'?page=1&limit=100 ?page=2&limit=100 ?page=3&limit=100'.split(' '));
  for(const call of mock.calls) {assert.equal(call.options.headers['X-BrokBuddy-Broker-Code'],env.BROKBUDDY_BROKER_CODE);assert.equal(call.options.cache,'no-store');assert.equal(call.options.redirect,'error');assert.ok(call.options.signal instanceof AbortSignal);assert.ok(!call.url.href.includes(env.BROKBUDDY_BROKER_CODE));}
  assert.ok(!JSON.stringify(data).includes(env.BROKBUDDY_BROKER_CODE));
 });
@@ -53,4 +53,32 @@ test('rate limits and bounded upstream timeouts are safe failures',async()=>{
  const keepAlive=setTimeout(()=>{},100);
  const client=createBrokerClient({env,timeoutMs:5,fetchImpl:(_url,opts)=>new Promise((_,reject)=>opts.signal.addEventListener('abort',()=>reject(Error('Timeout'))))});
  await assert.rejects(client.site(),e=>e.status===503);clearTimeout(keepAlive);
+});
+
+test('small inventories use one complete listing page and start profile/list reads together',async()=>{
+ const mock=mockApi({count:26});
+ const releases=[];
+ const client=createBrokerClient({env,fetchImpl:(input,options)=>new Promise((resolve,reject)=>{
+  // Record calls immediately, holding responses until both independent reads start.
+  const response=mock.fetchImpl(input,options);
+  releases.push(()=>Promise.resolve(response).then(resolve,reject));
+ })});
+ const pending=client.site();
+ try {
+  assert.equal(mock.calls.length,2,'profile and first inventory page must start before either response finishes');
+  assert.equal(mock.calls.filter(c=>c.url.pathname.endsWith('/listings')).length,1);
+ } finally {releases.forEach(release=>release());}
+ const result=await pending;
+ assert.equal(result.properties.length,26);
+ assert.equal(mock.calls.length,2);
+ assert.equal(mock.calls[1].url.search,'?page=1&limit=100');
+});
+test('later-page failures or changing totals never expose a partially loaded inventory',async()=>{
+ for(const transform of [
+  (value,url)=>url.searchParams.get('page')==='2' ? {...value,listings:[]}:value,
+  (value,url)=>url.searchParams.get('page')==='2' ? {...value,total:228}:value,
+  (value,url)=>url.searchParams.get('page')==='2' ? {...value,listings:value.listings.map(()=>value.listings[0])}:value,
+ ]) {
+  await assert.rejects(create(mockApi({count:227,transform})).site(),error=>error.status===503);
+ }
 });

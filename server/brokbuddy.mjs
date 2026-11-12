@@ -75,6 +75,7 @@ export function mapListing(value, agent, base) {
     permitNumber:string(value.trakheesiPermitNumber), floorPlanUrl:publicAsset(value.floorPlanUrl,base),
   };
 }
+const INVENTORY_PAGE_SIZE = 100; // BrokBuddy's supported maximum; independent of the UI's six-card pages.
 export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=10000}={}) {
   async function request(path, {method='GET',body,key}={}) {
     const config = getConfig(env);
@@ -114,17 +115,21 @@ export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=
     return listing;
   }
   async function site(id) {
-    const {agent}=await profile();
     const started=Date.now();
+    // Both endpoints authenticate the same broker code. Do independent reads
+    // together, then validate ownership before exposing any listing to the UI.
+    const [{agent},firstPage]=await Promise.all([
+      profile(), request(`/listings?page=1&limit=${INVENTORY_PAGE_SIZE}`),
+    ]);
     const properties=[]; const ids=new Set(); let total=null, totalPages=null;
     // Read all pages; UI filters/sorts operate on the complete active inventory.
     // A changing or truncated snapshot is an error, never a successful empty feed.
     for(let page=1; ; page++) {
       if(page>1000 || Date.now()-started>30000) throw unavailable();
-      const raw=await request(`/listings?page=${page}&limit=12`);
-      if(!Array.isArray(raw.listings) || raw.page!==page || !Number.isInteger(raw.total) || raw.total<0 || !Number.isInteger(raw.totalPages) || raw.totalPages!==Math.max(1,Math.ceil(raw.total/12))) throw unavailable();
+      const raw=page===1 ? firstPage : await request(`/listings?page=${page}&limit=${INVENTORY_PAGE_SIZE}`);
+      if(!Array.isArray(raw.listings) || raw.page!==page || !Number.isInteger(raw.total) || raw.total<0 || !Number.isInteger(raw.totalPages) || raw.totalPages!==Math.max(1,Math.ceil(raw.total/INVENTORY_PAGE_SIZE))) throw unavailable();
       if(total===null) {total=raw.total; totalPages=raw.totalPages;}
-      if(raw.total!==total || raw.totalPages!==totalPages || raw.listings.length!==Math.min(12,total-(page-1)*12)) throw unavailable();
+      if(raw.total!==total || raw.totalPages!==totalPages || raw.listings.length!==Math.min(INVENTORY_PAGE_SIZE,total-(page-1)*INVENTORY_PAGE_SIZE)) throw unavailable();
       for(const value of raw.listings) {
         const listing=mapListing(value,agent,getConfig(env).base);
         if(listing.status!=='ACTIVE' || ids.has(listing.id)) throw unavailable();

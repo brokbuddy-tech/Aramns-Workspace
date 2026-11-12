@@ -1,6 +1,5 @@
-import {AGENTS} from '../data/agents';
-import React from 'react';
-import { Phone, Mail, MapPin, ExternalLink } from 'lucide-react';
+import { ExternalLink, Mail, MapPin, Phone } from 'lucide-react';
+import { AGENTS } from '../data/agents';
 
 /* Social Icon Components (White circle, black fill) */
 const LinkedinIcon = ({ size = 15 }) => (
@@ -198,7 +197,7 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
               <ul className="space-y-2 sm:space-y-3 text-[11.5px] sm:text-sm text-[#A1A1AA] font-normal">
                 <li>
                   <a
-                    href="https://www.bayut.com"
+                    href="https://www.bayut.com/profolio/settings/agent-profile?branches=103274"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-white transition-colors flex items-center gap-1 group cursor-pointer"
@@ -209,7 +208,7 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
                 </li>
                 <li>
                   <a
-                    href="https://www.propertyfinder.ae"
+                    href="https://app.propertyfinder.ae/listing-management?active_tab=live&filter%5Bstate_stages%5D=live&sort=cd"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-white transition-colors flex items-center gap-1 group cursor-pointer"

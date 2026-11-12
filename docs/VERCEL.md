@@ -49,15 +49,43 @@ to be present on the imported branch.
 
 ## Connect the published hostname
 
-Save the final canonical HTTPS URL in the broker's BrokBuddy Branding settings
-so feed and media access recognizes this website. If using a custom domain,
-add it to the Vercel project and redirect aliases to the canonical hostname.
-Authorize the same hostname under the Google Maps browser key's website
-restrictions, for example `https://your-site.vercel.app/*`.
+The production address is **https://armanpropertyadvisor.com**.
+
+1. Open the deployed app's Vercel project → **Settings → Domains**.
+2. Add `armanpropertyadvisor.com` to the **Production** environment.
+3. Add `www.armanpropertyadvisor.com` and configure it to redirect to
+   `https://armanpropertyadvisor.com`.
+4. In **Cloudflare → armanpropertyadvisor.com → DNS → Records**, enter the
+   exact records displayed by Vercel for this project. Set **Proxy status** to
+   **DNS only** (gray cloud) and **TTL** to **Auto** for both website records:
+
+   | Type | Name | Value |
+   | --- | --- | --- |
+   | A | `@` | The apex IP shown by Vercel |
+   | CNAME | `www` | The CNAME target shown by Vercel |
+
+   If Vercel requests a domain ownership TXT record, add that exact record too.
+   Replace conflicting website records for these names; retain email MX and
+   unrelated verification TXT records. Keeping the current nameservers avoids
+   moving the rest of the domain's DNS. Keep the existing Cloudflare nameservers.
+5. Wait for both domains to show a valid configuration and HTTPS certificate
+   in Vercel. Check the `www` redirect after DNS propagation.
+
+Save `https://armanpropertyadvisor.com` in the broker's **BrokBuddy Branding →
+Website** setting so feed and media access recognizes this website. Authorize
+`https://armanpropertyadvisor.com/*` under the Google Maps browser key's
+website restrictions. If `www` also serves pages instead of redirecting,
+authorize `https://www.armanpropertyadvisor.com/*` as well.
+
+No application hostname change is required: browser API requests already use
+same-origin `/api/*` URLs. Domain attachment and DNS are configured outside
+the source repository. Follow [Vercel's custom-domain guide](https://vercel.com/docs/domains/working-with-domains/add-a-domain)
+and use the project-specific values it displays.
 
 Verify after deployment:
 
-- `/api/site` returns broker/listing JSON, not HTML or a 503 response.
+- `https://armanpropertyadvisor.com/api/site` returns broker/listing JSON, not
+  HTML or a 503 response.
 - `/api/maps-config` returns public Maps configuration (or `enabled: false`
   when maps are intentionally disabled).
 - Reloading a real `/property/<listing-id>` URL loads its detail page.

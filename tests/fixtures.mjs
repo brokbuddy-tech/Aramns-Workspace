@@ -9,7 +9,7 @@ export function mockApi({count=27,transform=(x)=>x,fail,confirmation={inquiry:{i
   const url=new URL(input);calls.push({url,options});
   if(fail) {const value=fail(url,options);if(value) return value;}
   if(options.method==='POST') return Response.json(confirmation,{status:201});
-  if(url.pathname.endsWith('/listings')) {const page=Number(url.searchParams.get('page'));return Response.json(transform({listings:inventory.slice((page-1)*12,page*12),page,total:count,totalPages:Math.max(1,Math.ceil(count/12))},url));}
+  if(url.pathname.endsWith('/listings')) {const page=Number(url.searchParams.get('page')),limit=Number(url.searchParams.get('limit'))||12;return Response.json(transform({listings:inventory.slice((page-1)*limit,page*limit),page,total:count,totalPages:Math.max(1,Math.ceil(count/limit))},url));}
   if(url.pathname.includes('/listings/')) {const value=inventory.find(x=>url.pathname.endsWith('/'+x.id));return value ? Response.json(transform(value,url)) : Response.json({message:'Not found'},{status:404});}
   return Response.json(transform(profile(inventory),url));
  };
