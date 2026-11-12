@@ -1,9 +1,11 @@
 import {test,expect} from '@playwright/test';
 import {createBrokerClient} from '../../server/brokbuddy.mjs';
 import {mockApi,env} from '../fixtures.mjs';
+import {installMapsMock} from './maps-mock.mjs';
 let data;
 test.beforeAll(async()=>{data=await createBrokerClient({env,fetchImpl:mockApi().fetchImpl}).site();});
 test.beforeEach(async({page})=>{
+  await installMapsMock(page);
   // Every submission is intercepted. Browser tests must never create real leads.
   await page.route('**/api/inquiries',route=>route.fulfill({status:503,json:{message:'Mock submission unavailable.'}}));
   await page.route('**/api/site*',route=>{
@@ -63,10 +65,55 @@ test('rich text supports HTML, escaped HTML, Markdown, plain text and strips act
 });
 test('mobile navigation and map search remain usable with no horizontal overflow',async({page})=>{
  await page.setViewportSize({width:390,height:844});await loaded(page);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.getByRole('button',{name:'Open menu'}).click();await expect(page.getByRole('button',{name:'Close menu'})).toBeVisible();await page.getByRole('button',{name:'Close menu'}).click();
- await page.goto('/map');await expect(page.locator('.leaflet-container')).toBeVisible();expect(await page.locator('.map-price-pin').count()).toBe(27);await page.getByPlaceholder(/Search/).first().fill('Property 27');await expect(page.locator('.map-price-pin')).toHaveCount(1);
+ await page.goto('/map');await expect(page.getByRole('region',{name:'Property map',exact:true})).toBeVisible();await expect(page.locator('.map-price-pin')).toHaveCount(27);await page.getByPlaceholder(/Search/).first().fill('Property 27');await expect(page.locator('.map-price-pin')).toHaveCount(1);
 });
 test('valuation form sends entered property details and preserves them on errors',async({page})=>{
  const submissions=[];await page.route('**/api/inquiries',route=>{submissions.push({body:route.request().postDataJSON(),key:route.request().headers()['idempotency-key']});return route.fulfill({status:submissions.length<3 ? 502:200,json:submissions.length<3 ? {message:'Please retry safely.'}:{ok:true}});});
  await page.goto('/sell');await page.getByPlaceholder('John Doe').fill('Test Person');await page.getByPlaceholder('john@example.com').fill('test@example.test');await page.getByPlaceholder('+1 (555) 000-0000').fill('+971500000000');await page.getByPlaceholder('123 Ocean Drive, Miami Beach, FL 33139').fill('Test property address');await page.locator('form select').selectOption('Modern Villa');
  await page.locator('button[type="submit"]').click();await expect(page.getByRole('alert')).toHaveText('Please retry safely.');await expect(page.getByPlaceholder('John Doe')).toHaveValue('Test Person');await page.locator('button[type="submit"]').click();await expect(page.getByRole('alert')).toHaveText('Please retry safely.');await page.getByPlaceholder('123 Ocean Drive, Miami Beach, FL 33139').fill('Revised property address');await page.locator('button[type="submit"]').click();await expect(page.getByText('Revised property address',{exact:true})).toBeVisible();expect(submissions[0].key).toBe(submissions[1].key);expect(submissions[2].key).not.toBe(submissions[1].key);expect(submissions[2].body.propertyType).toBe('Modern Villa');expect(submissions[2].body.message).toContain('Revised property address');
+});
+
+test('detail maps load on demand at the API location and do not expose feed credentials', async ({page}) => {
+  const configRequests=[];
+  page.on('request', request => {if(request.url().includes('/api/maps-config')) configRequests.push(request.url());});
+  await page.goto('/property/listing-1');
+  const location=page.getByRole('region',{name:'Property location',exact:true});
+  await expect(location.getByRole('button',{name:'Show map',exact:true})).toBeVisible();
+  expect(configRequests).toHaveLength(0);
+  await location.getByRole('button',{name:'Show map',exact:true}).click();
+  await expect(location.locator('[data-location-pin]')).toHaveCount(1);
+  expect(configRequests).toHaveLength(1);
+  expect(await page.evaluate(() => window.__mapsCalls.markers[0].position)).toEqual(data.properties[0].coordinates);
+  expect(await page.content()).not.toContain(env.BROKBUDDY_BROKER_CODE);
+});
+test('price pin selection opens the matching detail and mobile recenter remains usable', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/map');
+  await expect(page.locator('.map-price-pin')).toHaveCount(27);
+  await page.getByRole('button',{name:'Property 01',exact:true}).click();
+  await expect(page.locator('.map-price-pin.is-active')).toHaveCount(1);
+  await page.getByTitle('Recenter area').click();
+  await page.getByRole('button',{name:/^View Residence/}).click();
+  await expect(page).toHaveURL(/\/property\/listing-1$/);
+  await expect(page.getByRole('heading',{name:'Property 01',exact:true})).toBeVisible();
+});
+test('Maps failure preserves browsing and missing coordinates never produce an invented pin', async ({page}) => {
+  await page.route('**/api/maps-config',route=>route.fulfill({json:{enabled:false}}));
+  await page.goto('/map');
+  await expect(page.getByText('The map is temporarily unavailable. You can still browse the property list.')).toBeVisible();
+  await expect(page.getByPlaceholder(/Search/).first()).toBeVisible();
+  await page.route('**/api/site*',route=>route.fulfill({json:{...data,selectedProperty:{...data.properties[0],coordinates:null}}}));
+  await page.goto('/property/listing-1');
+  await expect(page.getByText('Location unavailable.',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Show map',exact:true})).toHaveCount(0);
+});
+test('zero coordinates are valid and delayed Google authorization failures show a fallback', async ({page}) => {
+  await page.route('**/api/site*',route=>route.fulfill({json:{...data,selectedProperty:{...data.properties[0],coordinates:{lat:0,lng:0}}}}));
+  await page.goto('/property/listing-1');
+  await page.getByRole('button',{name:'Show map',exact:true}).click();
+  await expect(page.locator('[data-location-pin]')).toHaveCount(1);
+  expect(await page.evaluate(() => window.__mapsCalls.markers[0].position)).toEqual({lat:0,lng:0});
+  await page.evaluate(() => window.gm_authFailure());
+  await expect(page.getByText('The map is temporarily unavailable.',{exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Property 01',exact:true})).toBeVisible();
 });

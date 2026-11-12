@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import L from 'leaflet';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {useGoogleMaps, validCoordinates} from '../lib/google-maps';
 import { 
   MapPin, Layers, ChevronRight, ChevronDown, X, ExternalLink, 
   ArrowLeft, Check, Search, SlidersHorizontal, List, Map as MapIcon,
@@ -20,6 +20,8 @@ export default function PropertyMapPage({
   onNavigate,
   initialArea = 'all'
 }) {
+  const {sdk, error: sdkError} = useGoogleMaps();
+  const [mapReady, setMapReady] = useState(false);
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef({});
@@ -57,7 +59,7 @@ export default function PropertyMapPage({
   }, []);
 
   // Filter properties based on area, category, and search query
-  const filteredProperties = properties.filter((prop) => {
+  const filteredProperties = useMemo(() => properties.filter((prop) => {
     // Area filter
     if (selectedAreaId !== 'all') {
       const areaName = currentArea.name.toLowerCase();
@@ -103,112 +105,77 @@ export default function PropertyMapPage({
     }
 
     return true;
-  });
+  }), [properties, selectedAreaId, currentArea, selectedCategory, searchQuery]);
 
   // Active property object (for mobile floating card and highlight)
   const activeProperty = properties.find(p => p.id === activePropertyId) || null;
 
-  // Initialize Leaflet Map
+  // Google Maps uses the API's listing coordinates directly; no geocoding.
   useEffect(() => {
-    if (!mapContainerRef.current) return;
-    if (mapInstanceRef.current) return;
-
-    // Create Map instance
-    const map = L.map(mapContainerRef.current, {
-      center: currentArea.center,
-      zoom: currentArea.zoom,
-      zoomControl: false,
-      scrollWheelZoom: true
+    if (!sdk || !mapContainerRef.current) return;
+    const map = new sdk.Map(mapContainerRef.current, {
+      center: {lat: currentArea.center[0], lng: currentArea.center[1]},
+      zoom: currentArea.zoom, mapId: sdk.mapId,
+      mapTypeControl: false, streetViewControl: false,
+      gestureHandling: 'greedy', zoomControl: true,
+      zoomControlOptions: {position: window.google.maps.ControlPosition.LEFT_CENTER},
     });
-
-    // OpenStreetMap standard tile layer (matching the reference image)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
-
-    // Zoom controls at top-left
-    L.control.zoom({ position: 'topleft' }).addTo(map);
-
     mapInstanceRef.current = map;
-
+    setMapReady(true);
     return () => {
-      map.remove();
+      Object.values(markersRef.current).forEach(marker => {
+        marker.map = null;
+        sdk.event.clearInstanceListeners(marker);
+      });
+      Object.values(popupsRef.current).forEach(popup => {
+        popup.close();
+        sdk.event.clearInstanceListeners(popup);
+      });
+      sdk.event.clearInstanceListeners(map);
       mapInstanceRef.current = null;
     };
-  }, []);
+  }, [sdk]);
 
-  // Invalidate map size when sidebar opens/closes or mobile view toggles to ensure full-screen rendering
   useEffect(() => {
-    const handleResize = () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.invalidateSize();
-      }
-    };
+    if (!mapReady || !sdk || !mapInstanceRef.current) return;
+    const timer = setTimeout(() => sdk.event.trigger(mapInstanceRef.current, 'resize'), 350);
+    return () => clearTimeout(timer);
+  }, [sidebarOpen, mobileViewMode, mapReady, sdk]);
 
-    handleResize();
-    const t1 = setTimeout(handleResize, 60);
-    const t2 = setTimeout(handleResize, 180);
-    const t3 = setTimeout(handleResize, 350);
-    const t4 = setTimeout(handleResize, 600);
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-    };
-  }, [sidebarOpen, mobileViewMode]);
-
-  // Lock body scroll on mobile when full screen map is active
   useEffect(() => {
-    if (mobileViewMode === 'map' && typeof window !== 'undefined' && window.innerWidth < 768) {
+    if (mobileViewMode === 'map' && window.innerWidth < 768) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
+    return () => { document.body.style.overflow = ''; };
   }, [mobileViewMode]);
 
-  // Update Markers whenever filteredProperties, currencyCode, or activePropertyId changes
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map) return;
-
-    // Clear existing markers
+    if (!mapReady || !sdk || !map) return;
     Object.values(markersRef.current).forEach(marker => {
-      marker.remove();
+      marker.map = null;
+      sdk.event.clearInstanceListeners(marker);
+    });
+    Object.values(popupsRef.current).forEach(popup => {
+      popup.close();
+      sdk.event.clearInstanceListeners(popup);
     });
     markersRef.current = {};
     popupsRef.current = {};
 
-    filteredProperties.forEach((property) => {
-      const coords = property.coordinates;
-      if (!coords) return;
-      const isRent = property.marketCategory === 'rent' || property.listingType === 'FOR RENT' || (property.priceFormatted && (property.priceFormatted.includes('/mo') || property.priceFormatted.includes('year') || property.priceFormatted.includes('/yr')));
+    filteredProperties.forEach(property => {
+      if (!validCoordinates(property.coordinates)) return;
       const shortPrice = property.priceFormatted;
-      const isActive = activePropertyId === property.id;
-
-      // Custom HTML Marker matching user reference screenshot
-      const icon = L.divIcon({
-        className: 'custom-leaflet-marker',
-        html: `
-          <div 
-            id="marker-pin-${property.id}" 
-            class="map-price-pin ${isActive ? 'is-active' : ''}"
-          >
-            ${escapeHtml(shortPrice)}
-          </div>
-        `,
-        iconSize: [84, 36],
-        iconAnchor: [42, 36]
+      const pin = document.createElement('button');
+      pin.type = 'button';
+      pin.className = 'map-price-pin';
+      pin.textContent = shortPrice;
+      pin.setAttribute('aria-label', property.title);
+      const marker = new sdk.AdvancedMarkerElement({
+        map, position: property.coordinates, content: pin, title: property.title,
       });
-
-      const marker = L.marker([coords.lat, coords.lng], { icon }).addTo(map);
-
-      // Popup HTML matching screenshot layout
       const popupHtml = `
         <div class="flex items-center gap-3.5 p-3.5 min-w-[310px] sm:min-w-[340px] max-w-[360px] bg-white rounded-2xl relative select-none font-sans">
           <button 
@@ -253,83 +220,65 @@ export default function PropertyMapPage({
           </div>
         </div>
       `;
-
-      const popup = L.popup({
-        className: 'custom-property-popup',
-        offset: [0, -32],
-        closeButton: false,
-        maxWidth: 380
-      }).setContent(popupHtml);
-
-      marker.bindPopup(popup);
-
-      // Event listener for opening popup
-      marker.on('click', () => {
-        setActivePropertyId(property.id);
-        marker.openPopup();
+      const popup = new sdk.InfoWindow({content: popupHtml, maxWidth: 380});
+      pin.addEventListener('click', () => setActivePropertyId(property.id));
+      popup.addListener('closeclick', () => setActivePropertyId(null));
+      popup.addListener('domready', () => {
+        const close = document.getElementById(`popup-close-${property.id}`);
+        if (close) close.onclick = () => setActivePropertyId(null);
+        const open = () => onNavigate?.(`/property/${property.id}`);
+        const view = document.getElementById(`popup-view-btn-${property.id}`);
+        const title = document.getElementById(`popup-title-${property.id}`);
+        if (view) view.onclick = open;
+        if (title) title.onclick = open;
       });
-
-      marker.on('popupopen', () => {
-        // Wire up close button inside popup
-        const closeBtn = document.getElementById(`popup-close-${property.id}`);
-        if (closeBtn) {
-          closeBtn.onclick = (e) => {
-            e.stopPropagation();
-            map.closePopup();
-            setActivePropertyId(null);
-          };
-        }
-
-        // Wire up detail navigation buttons
-        const viewBtn = document.getElementById(`popup-view-btn-${property.id}`);
-        const titleBtn = document.getElementById(`popup-title-${property.id}`);
-        const handleOpenDetail = (e) => {
-          e.stopPropagation();
-          if (onNavigate) {
-            onNavigate(`/property/${property.id}`);
-          }
-        };
-
-        if (viewBtn) viewBtn.onclick = handleOpenDetail;
-        if (titleBtn) titleBtn.onclick = handleOpenDetail;
-      });
-
       markersRef.current[property.id] = marker;
       popupsRef.current[property.id] = popup;
     });
-  }, [filteredProperties, currencyCode, activePropertyId]);
-
-  // When selected area changes, fly to its coordinates
-  const handleSelectArea = (areaId) => {
-    setSelectedAreaId(areaId);
-    setActivePropertyId(null);
-    const targetArea = MAP_AREAS.find(a => a.id === areaId);
-    if (targetArea && mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo(targetArea.center, targetArea.zoom, {
-        duration: 1.2,
-        easeLinearity: 0.25
+    return () => {
+      Object.values(markersRef.current).forEach(marker => {
+        marker.map = null;
+        sdk.event.clearInstanceListeners(marker);
       });
-    }
+      Object.values(popupsRef.current).forEach(popup => {
+        popup.close();
+        sdk.event.clearInstanceListeners(popup);
+      });
+      markersRef.current = {};
+      popupsRef.current = {};
+    };
+  }, [filteredProperties, mapReady, sdk, onNavigate]);
+
+  useEffect(() => {
+    Object.entries(markersRef.current).forEach(([id, marker]) => {
+      const active = id === activePropertyId;
+      marker.content.classList.toggle('is-active', active);
+      marker.zIndex = active ? 1000 : 1;
+      const popup = popupsRef.current[id];
+      if (active) popup.open({map: mapInstanceRef.current, anchor: marker});
+      else popup.close();
+    });
+  }, [activePropertyId, filteredProperties, mapReady, sdk, onNavigate]);
+
+  const centerMap = area => {
+    if (!mapInstanceRef.current) return;
+    mapInstanceRef.current.panTo({lat: area.center[0], lng: area.center[1]});
+    mapInstanceRef.current.setZoom(area.zoom);
   };
 
-  // Center on individual property when clicked from side list
-  const handlePropertyCardClick = (property) => {
+  const handleSelectArea = areaId => {
+    setSelectedAreaId(areaId);
+    setActivePropertyId(null);
+    const area = MAP_AREAS.find(a => a.id === areaId);
+    if (area) centerMap(area);
+  };
+
+  const handlePropertyCardClick = property => {
+    if (!validCoordinates(property.coordinates)) return;
     setActivePropertyId(property.id);
-    const coords = property.coordinates;
-    const map = mapInstanceRef.current;
-    if (map && coords) {
-      map.flyTo([coords.lat, coords.lng], 16, { duration: 1 });
-      const marker = markersRef.current[property.id];
-      if (marker) {
-        setTimeout(() => {
-          marker.openPopup();
-        }, 500);
-      }
-    }
-    // On mobile switch to map view so the user sees the pin immediately
-    if (window.innerWidth < 768) {
-      setMobileViewMode('map');
-    }
+    mapInstanceRef.current?.panTo(property.coordinates);
+    mapInstanceRef.current?.setZoom(16);
+    if (window.innerWidth < 768) setMobileViewMode('map');
   };
 
   const categories = ['All', 'Buy', 'Rent'];
@@ -485,9 +434,7 @@ export default function PropertyMapPage({
             <button
               type="button"
               onClick={() => {
-                if (leafletMapRef.current && currentArea) {
-                  leafletMapRef.current.setView([currentArea.lat, currentArea.lng], currentArea.zoom, { animate: true, duration: 0.8 });
-                }
+                centerMap(currentArea);
                 setMobileViewMode('map');
               }}
               className="inline-flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-[12px] font-bold transition-all shadow-xs hover:scale-102 active:scale-98 cursor-pointer shrink-0"
@@ -598,9 +545,7 @@ export default function PropertyMapPage({
               <button
                 type="button"
                 onClick={() => {
-                  if (leafletMapRef.current && currentArea) {
-                    leafletMapRef.current.setView([currentArea.lat, currentArea.lng], currentArea.zoom, { animate: true, duration: 0.8 });
-                  }
+                  centerMap(currentArea);
                   setMobileViewMode('map');
                 }}
                 className="text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer shadow-2xs hover:scale-102 active:scale-98"
@@ -770,11 +715,18 @@ export default function PropertyMapPage({
               : 'hidden md:block md:relative md:inset-auto md:z-0 md:flex-1 md:h-full md:min-h-0'
           }
         >
-          {/* Leaflet Map DOM Element */}
+          {/* Google Maps listing explorer */}
           <div 
             ref={mapContainerRef} 
-            className="w-full h-full min-h-full bg-slate-100" 
+            role="region" aria-label="Property map"
+            className="google-property-map w-full h-full min-h-full bg-slate-100"
           />
+
+          {(!mapReady || sdkError) && (
+            <div role="status" className="absolute inset-0 flex items-center justify-center p-8 bg-stone-50 text-sm text-stone-600">
+              {sdkError ? 'The map is temporarily unavailable. You can still browse the property list.' : 'Loading map…'}
+            </div>
+          )}
 
           {/* MOBILE FULL-SCREEN FLOATING TOP CONTROLS */}
           {mobileViewMode === 'map' && (
@@ -873,9 +825,7 @@ export default function PropertyMapPage({
             <button
               type="button"
               onClick={() => {
-                if (leafletMapRef.current && currentArea) {
-                  leafletMapRef.current.setView([currentArea.lat, currentArea.lng], currentArea.zoom, { animate: true, duration: 0.8 });
-                }
+                centerMap(currentArea);
               }}
               className="md:hidden absolute top-30 right-3 z-[10001] w-9 h-9 rounded-full bg-white/95 text-gray-900 shadow-[0_8px_20px_rgba(0,0,0,0.3)] border border-gray-200 flex items-center justify-center hover:bg-white active:scale-95 transition-all cursor-pointer"
               title="Recenter area"
@@ -977,9 +927,7 @@ export default function PropertyMapPage({
           <button
             type="button"
             onClick={() => {
-              if (leafletMapRef.current && currentArea) {
-                leafletMapRef.current.setView([currentArea.lat, currentArea.lng], currentArea.zoom, { animate: true, duration: 0.8 });
-              }
+              centerMap(currentArea);
               setMobileViewMode('map');
             }}
             className="bg-black text-white px-5 py-2.5 rounded-full shadow-[0_12px_30px_rgba(0,0,0,0.5)] flex items-center gap-2 text-[12.5px] font-bold border border-white/20 active:scale-95 transition-all cursor-pointer"

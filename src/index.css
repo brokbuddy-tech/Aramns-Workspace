@@ -238,6 +238,15 @@
 }
 
 /* Mobile full-screen map zoom control offset */
+.google-property-map .map-price-pin {
+  transform: none;
+}
+
+.google-property-map .map-price-pin:hover,
+.google-property-map .map-price-pin.is-active {
+  transform: scale(1.08);
+}
+
 @media (max-width: 767px) {
   .leaflet-top.leaflet-left {
     top: 130px !important;

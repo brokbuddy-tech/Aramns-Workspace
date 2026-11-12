@@ -65,9 +65,67 @@ Only these server reads carry `X-BrokBuddy-Broker-Code`. They use no-store, boun
 
 Browser reads use `/api/site`; direct `/property/:id` and `/properties/:id` visits fetch the dedicated scoped detail endpoint. Missing details have the existing not-found view; feed/auth failures have the neutral unavailable view. Broker navigation and footer are absent in the unavailable state, with non-identifying, non-indexable metadata. Focus, page restore and a 60-second check revalidate the feed. A healthy background recheck retains form state; failures clear public feed state. Previously downloaded images cannot be retracted by the site.
 
-Profile biography and listing descriptions support HTML, escaped HTML, Markdown and plain text through `marked` plus DOMPurify. Executable elements, event handlers, inline styles and unsafe links are stripped. Rich text inherits the existing content containers' typography. Leaflet popup interpolation is escaped. Image URLs come from the API; gallery identity/URL deduplication excludes documents and floor-plan/360 assets. Map pins use actual coordinates only.
+Profile biography and listing descriptions support HTML, escaped HTML, Markdown and plain text through `marked` plus DOMPurify. Executable elements, event handlers, inline styles and unsafe links are stripped. Rich text inherits the existing content containers' typography. Google Maps popup interpolation is escaped. Image URLs come from the API; gallery identity/URL deduplication excludes documents and floor-plan/360 assets. Map pins use actual coordinates only.
 
 Prices retain numeric values and their source currencies. Rental periods are not supplied by this contract, so none are appended. Mortgage estimates appear only for sales and calculate in the source currency. Mixed-currency inventory disables the existing numeric price filter/sort options. The existing map and mortgage currency conversion controls remain in place but unavailable because this contract provides no exchange rates.
+
+
+## Google Maps for this website
+
+Novalux is a React/Vite application, so it does not use Next.js's
+`NEXT_PUBLIC_*` environment variables. Maps configuration is read by the Node
+server at runtime and exposed through a deliberately public, no-store
+`GET /api/maps-config` response. It contains only `enabled`, the restricted
+Maps browser `apiKey`, and `mapId`; no BrokBuddy feed credentials are included.
+
+Configure each deployed website independently:
+
+```dotenv
+BROKBUDDY_API_BASE_URL=https://api.brokbuddy.si
+BROKBUDDY_BROKER_PROFILE_SLUG=the-brokers-public-slug
+BROKBUDDY_BROKER_CODE=the-issued-server-only-code
+GOOGLE_MAPS_BROWSER_API_KEY=the-websites-restricted-google-browser-key
+GOOGLE_MAPS_MAP_ID=8f9c7f3389f798b89cdc534a
+```
+
+Keep these settings in the Node host's runtime environment or ignored `.env`.
+The Maps browser key is intentionally visible in browser network requests;
+restrict it to the canonical website and any supported aliases in Google
+Cloud, with one website entry per hostname, such as
+`https://agency.example/*` and `https://www.agency.example/*`. Add the local
+origin only to a development key when testing locally. The key needs Maps
+JavaScript API for these listing maps. This implementation does not use Places
+or Geocoding, so those APIs do not need to be authorized on the template key.
+Use a dedicated key per customer website to allow independent restrictions and
+rotation. Keys in the same Cloud project share that project's billing/quotas.
+
+The supplied Map ID can be reused for common styling by websites using the
+same Google Cloud project. Set a different JavaScript Map ID to give a website
+its own map configuration. Missing/invalid Maps settings disable only the map;
+property details, browsing and enquiries continue to work.
+
+For this code release, run `npm run build` and restart/redeploy Node. Later
+changes to Maps settings require a Node restart and a browser reload, without
+rebuilding Vite assets. Separate repositories/hosts must each receive their
+own settings; changing the Broker OS VM does not update this website.
+
+Both the map explorer and the listing-detail map use the feed's validated
+`coordinates: {lat, lng}` directly. The detail page requests Maps only after
+**Show map** is selected. Missing coordinates show **Location unavailable**;
+zero coordinates are valid. No address geocoding, nearby-place requests or
+invented listing pins are used. The SDK is loaded once per browser page, and
+map failures retain the normal property-list/details experience.
+
+BrokBuddy requests still go from Node to `api.brokbuddy.si` using the broker
+code. Google Maps requests go from the visitor's browser directly to Google
+using the restricted Maps browser key. Register the website's canonical URL
+in BrokBuddy Branding as described above; separately authorize its hostname
+in the Google Maps key's website restrictions. These are distinct settings.
+
+For agency templates in other repositories, keep their existing agency
+slug/code server integration and use the same Maps configuration/coordinate
+contract. Do not replace an agency credential with this broker template's code.
+The browser must never receive either type of BrokBuddy access code.
 
 ## Enquiries and retries
 

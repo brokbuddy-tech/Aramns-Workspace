@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
 import {createApiHandler,validateInquiry} from '../server/http.mjs';
 import {PublicError} from '../server/brokbuddy.mjs';
+import {getPublicMapsConfig} from '../server/maps.mjs';
 const body={name:'Test Person',email:'test@example.test',message:'Please contact me about this property.',listingId:'listing-1'};
-async function call({payload=body,headers={},method='POST',url='/api/inquiries',client={site:async()=>({properties:[]}),inquire:async()=>({ok:true})}}={}) {
+async function call({payload=body,headers={},method='POST',url='/api/inquiries',runtimeEnv={},client={site:async()=>({properties:[]}),inquire:async()=>({ok:true})}}={}) {
  const req=Readable.from([Buffer.from(typeof payload==='string' ? payload : JSON.stringify(payload))]);
  Object.assign(req,{method,url,headers:{host:'localhost:3000',origin:'http://localhost:3000','content-type':'application/json','idempotency-key':'valid-idempotency-key',...headers}});
  let status,responseHeaders,result;const res={writeHead:(s,h)=>{status=s;responseHeaders=h;},end:data=>{result=data ? JSON.parse(data):null;}};
- await createApiHandler(client)(req,res);return {status,headers:responseHeaders,body:result};
+ await createApiHandler(client,runtimeEnv)(req,res);return {status,headers:responseHeaders,body:result};
 }
 test('same-origin valid submission confirms delivery and never caches',async()=>{
  let received;const result=await call({client:{inquire:async(input,key)=>{received={input,key};return {ok:true};}}});assert.equal(result.status,200);assert.deepEqual(result.body,{ok:true});assert.equal(received.input.listingId,'listing-1');assert.equal(received.key,'valid-idempotency-key');assert.equal(result.headers['cache-control'],'no-store');
@@ -27,4 +28,30 @@ test('API/auth errors never become successful empty feeds or reveal raw errors',
  const result=await call({method:'GET',url:'/api/site',client:{site:async()=>{throw new PublicError(503,'Website unavailable.');}}});assert.equal(result.status,503);assert.equal(result.body.properties,undefined);
  const unknown=await call({client:{inquire:async()=>{throw Error('private secret');}}});assert.equal(unknown.status,503);assert.ok(!JSON.stringify(unknown).includes('private secret'));
  assert.equal((await call({method:'GET',url:'/api/site?slug=other'})).status,400);
+});
+
+const mapsEnv = {
+  GOOGLE_MAPS_BROWSER_API_KEY: 'AIza' + 'T'.repeat(35),
+  GOOGLE_MAPS_MAP_ID: '8f9c7f3389f798b89cdc534a',
+  BROKBUDDY_BROKER_CODE: 'private-broker-code',
+  BROKBUDDY_AGENCY_TEMPLATE_CODE: 'private-agency-code',
+  DATABASE_URL: 'private-database-url',
+};
+test('runtime Maps configuration exposes only the browser key and Map ID', async () => {
+  const result = await call({method:'GET', url:'/api/maps-config', runtimeEnv:mapsEnv});
+  assert.equal(result.status,200);
+  assert.deepEqual(result.body, {enabled:true, apiKey:mapsEnv.GOOGLE_MAPS_BROWSER_API_KEY, mapId:mapsEnv.GOOGLE_MAPS_MAP_ID});
+  assert.equal(result.headers['cache-control'],'no-store');
+  assert.ok(!JSON.stringify(result.body).includes('private-'));
+  assert.equal((await call({method:'POST',url:'/api/maps-config',runtimeEnv:mapsEnv})).status,405);
+  assert.equal((await call({method:'GET',url:'/api/maps-config?broker=other',runtimeEnv:mapsEnv})).status,400);
+});
+test('unconfigured/invalid Maps settings disable only maps and never reveal environment values', async () => {
+  for (const config of [{}, {...mapsEnv,GOOGLE_MAPS_BROWSER_API_KEY:'bad'}, {...mapsEnv,GOOGLE_MAPS_MAP_ID:'bad id'}]) {
+    assert.deepEqual(getPublicMapsConfig(config),{enabled:false});
+    const result=await call({method:'GET',url:'/api/maps-config',runtimeEnv:config});
+    assert.equal(result.status,200);
+    assert.deepEqual(result.body,{enabled:false});
+  }
+  assert.equal(getPublicMapsConfig({GOOGLE_MAPS_BROWSER_API_KEY:mapsEnv.GOOGLE_MAPS_BROWSER_API_KEY}).mapId,mapsEnv.GOOGLE_MAPS_MAP_ID);
 });

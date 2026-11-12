@@ -13,6 +13,7 @@ import { PROPERTIES } from '../data/properties';
 import PropertyCard from './PropertyCard';
 import MortgageCalculator from './MortgageCalculator';
 import RichText from './RichText';
+import ListingLocationMap from './ListingLocationMap';
 
 export default function PropertyDetailPage({
   property,
@@ -376,6 +377,8 @@ export default function PropertyDetailPage({
                 </div>
               </div>
             </div>
+
+            <ListingLocationMap key={property.id} property={property} />
 
             {/* Mortgage & Financing Calculator Section (Only for Buy, excluded for Rent) */}
             {property.marketCategory !== 'rent' && property.listingType !== 'FOR RENT' && (

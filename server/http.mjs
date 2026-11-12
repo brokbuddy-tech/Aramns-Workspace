@@ -1,4 +1,5 @@
 import {PublicError} from './brokbuddy.mjs';
+import {getPublicMapsConfig} from './maps.mjs';
 const message = 'We could not send your enquiry. Please try again.';
 export function validateInquiry(value) {
   if(!value || typeof value!=='object' || Array.isArray(value)) throw new PublicError(400,'Please check your enquiry.');
@@ -18,11 +19,16 @@ export function validateInquiry(value) {
   }
   return body;
 }
-export function createApiHandler(client) {
+export function createApiHandler(client, env = process.env) {
   return async (req,res) => {
     const send=(status,data)=>{res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin'}); res.end(JSON.stringify(data));};
     try {
       const url=new URL(req.url,'http://localhost');
+      if (url.pathname === '/api/maps-config') {
+        if (req.method !== 'GET') return send(405, {message: 'Method not allowed.'});
+        if (url.search) return send(400, {message: 'Invalid request.'});
+        return send(200, getPublicMapsConfig(env));
+      }
       if(req.method==='GET' && url.pathname==='/api/site') {
         const keys=[...url.searchParams.keys()];
         if(keys.some(k=>k!=='listingId') || url.searchParams.getAll('listingId').length>1) throw new PublicError(400,'Invalid request.');
