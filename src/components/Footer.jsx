@@ -197,7 +197,7 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
               <ul className="space-y-2 sm:space-y-3 text-[11.5px] sm:text-sm text-[#A1A1AA] font-normal">
                 <li>
                   <a
-                    href="https://www.bayut.com/profolio/settings/agent-profile?branches=103274"
+                    href="https://www.bayut.com/brokers/arman-alam-2851979.html"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-white transition-colors flex items-center gap-1 group cursor-pointer"
@@ -208,7 +208,7 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
                 </li>
                 <li>
                   <a
-                    href="https://app.propertyfinder.ae/listing-management?active_tab=live&filter%5Bstate_stages%5D=live&sort=cd"
+                    href="https://www.propertyfinder.ae/en/agent/arman-alam-467643"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-white transition-colors flex items-center gap-1 group cursor-pointer"
