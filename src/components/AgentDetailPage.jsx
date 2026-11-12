@@ -17,7 +17,6 @@ export default function AgentDetailPage({
   onContactAgent
 }) {
   const [copied, setCopied] = useState(false);
-  const [showAllProperties, setShowAllProperties] = useState(false);
   const [activeTestimonialIdx, setActiveTestimonialIdx] = useState(0);
   const [isTestimonialsPaused, setIsTestimonialsPaused] = useState(false);
   const testimonialsScrollRef = useRef(null);
@@ -337,7 +336,7 @@ export default function AgentDetailPage({
           ) : (
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {(showAllProperties ? agentProperties : agentProperties.slice(0, 3)).map((property) => (
+                {agentProperties.slice(0, 3).map((property) => (
                   <PropertyCard
                     key={property.id}
                     property={property}
@@ -350,14 +349,18 @@ export default function AgentDetailPage({
 
               {agentProperties.length > 3 && (
                 <div className="text-center pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAllProperties(!showAllProperties)}
+                  <a
+                    href="/properties"
+                    onClick={(event) => {
+                      if (!onNavigate || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                      event.preventDefault();
+                      onNavigate('/properties');
+                    }}
                     className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-black hover:bg-neutral-800 text-white text-xs font-semibold uppercase tracking-widest transition-all duration-200 shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                   >
-                    <span>{showAllProperties ? 'Show Less Properties' : `View More Properties (${agentProperties.length} Total)`}</span>
-                    <ChevronRight size={14} className={`transition-transform duration-200 ${showAllProperties ? '-rotate-90' : 'rotate-90'}`} />
-                  </button>
+                    <span>View More Properties ({agentProperties.length} Total)</span>
+                    <ChevronRight size={14} />
+                  </a>
                 </div>
               )}
             </div>
