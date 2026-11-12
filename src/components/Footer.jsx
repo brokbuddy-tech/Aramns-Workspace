@@ -217,17 +217,7 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
                     <ExternalLink size={10} className="text-[#71717A] group-hover:text-white transition-colors shrink-0" />
                   </a>
                 </li>
-                <li>
-                  <a
-                    href="https://dubizzle.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-white transition-colors flex items-center gap-1 group cursor-pointer"
-                  >
-                    <span>Dubizzle</span>
-                    <ExternalLink size={10} className="text-[#71717A] group-hover:text-white transition-colors shrink-0" />
-                  </a>
-                </li>
+
               </ul>
             </div>
 
