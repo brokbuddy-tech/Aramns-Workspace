@@ -5,9 +5,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, ChevronRight, MapPin, 
   Bed, Bath, Maximize2, Calendar, ShieldCheck, Check, 
-  Phone, Mail, FileText, Download, Compass, Car, 
-  Sparkles, Layers, Building2, CheckCircle2, ChevronLeft,
-  X, MessageSquare, Award, Clock, Calculator
+  Phone, Mail, Compass, Car,
+  Sparkles, Layers, Building2, CheckCircle2,
+  MessageSquare, Award, Clock, Calculator
 } from 'lucide-react';
 import { AGENTS } from '../data/agents';
 import { PROPERTIES } from '../data/properties';
@@ -15,6 +15,7 @@ import PropertyCard from './PropertyCard';
 import MortgageCalculator from './MortgageCalculator';
 import RichText from './RichText';
 import ListingLocationMap from './ListingLocationMap';
+import PropertyPhotoGallery from './PropertyPhotoGallery';
 
 export default function PropertyDetailPage({
   property,
@@ -27,10 +28,7 @@ export default function PropertyDetailPage({
   showToast
 }) {
   useEffect(() => property?.status === 'ACTIVE' ? trackVisibleProperty(property.id) : undefined, [property?.id, property?.status]);
-  // Gallery state
   const inquiry = useInquiry();
-  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   // Viewing booking form state
   const [bookingDate, setBookingDate] = useState('');
@@ -39,27 +37,12 @@ export default function PropertyDetailPage({
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [isBooked, setIsBooked] = useState(false);
-  const [brochureRequested, setBrochureRequested] = useState(false);
 
   // Scroll to top when property changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setActivePhotoIdx(0);
     setIsBooked(false);
   }, [property?.id]);
-
-  // Handle Escape key to close lightbox
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setIsLightboxOpen(false);
-      }
-    };
-    if (isLightboxOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLightboxOpen]);
 
   if (!property) {
     return (
@@ -91,9 +74,6 @@ export default function PropertyDetailPage({
   };
   const badgeInfo = getBadgeInfo();
 
-  // Images list
-  const photos = property.images || [];
-
   // Related properties (same category, excluding current)
   const relatedProperties = properties
     .filter(p => p.id !== property.id && (p.marketCategory === property.marketCategory || p.category === property.category))
@@ -105,10 +85,6 @@ export default function PropertyDetailPage({
     if (!sent) return;
     setIsBooked(true);
     onScheduleShowing?.({propertyTitle:property.title,date:bookingDate,time:bookingTime,clientName,clientEmail});
-  };
-
-  const handleDownloadBrochure = () => {
-    showToast?.('A downloadable brochure is currently unavailable. Contact the broker for property documents.', 'info');
   };
 
   const categoryPath = `/properties/${property.marketCategory || 'buy'}`;
@@ -176,53 +152,7 @@ export default function PropertyDetailPage({
           </div>
         </div>
 
-        {/* 3. HERO MEDIA GALLERY (1 Large Hero + 3 Thumbnails Strip) */}
-        <div className="space-y-3">
-          <div className="relative w-full aspect-[16/9] max-h-[580px] rounded-2xl overflow-hidden bg-stone-100 border border-[#E5E7EB] shadow-md group">
-            <img
-              src={photos[activePhotoIdx]}
-              alt={property.title}
-              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02] cursor-pointer"
-              onClick={() => setIsLightboxOpen(true)}
-            />
-
-            {/* Gradient Overlays */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 pointer-events-none" />
-
-            {/* Counter Badge */}
-            <div className="absolute bottom-4 left-4 z-10 px-3 py-1.5 rounded-lg bg-black/75 backdrop-blur-md text-white text-xs font-mono font-medium border border-white/10">
-              {photos.length ? `Photo ${activePhotoIdx + 1} of ${photos.length}` : 'No photos available'}
-            </div>
-
-            {/* Fullscreen Zoom Trigger */}
-            <button
-              onClick={() => setIsLightboxOpen(true)}
-              className="absolute bottom-4 right-4 z-10 px-4 py-2 rounded-lg bg-white/90 backdrop-blur-md hover:bg-white text-black text-xs font-semibold shadow-md transition-all cursor-pointer inline-flex items-center gap-1.5"
-            >
-              <Maximize2 size={14} />
-              <span>View Fullscreen</span>
-            </button>
-          </div>
-
-          {/* Thumbnails Row */}
-          {photos.length > 1 && (
-            <div className="grid grid-cols-4 gap-3">
-              {photos.map((imgUrl, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActivePhotoIdx(idx)}
-                  className={`relative aspect-[16/10] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                    activePhotoIdx === idx 
-                      ? 'border-black ring-2 ring-black/20 scale-[1.02]' 
-                      : 'border-transparent opacity-75 hover:opacity-100'
-                  }`}
-                >
-                  <img src={imgUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <PropertyPhotoGallery key={property.id} images={property.images} title={property.title} />
 
         {/* 4. ESSENTIAL PROPERTY SPECS ROW */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 p-5 sm:p-6 bg-white border border-[#E5E7EB] rounded-2xl shadow-sm">
@@ -392,35 +322,6 @@ export default function PropertyDetailPage({
                 />
               </div>
             )}
-
-            {/* Brochure & Profile Download Card */}
-            <div className="p-6 bg-stone-900 text-white rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <h4 className="text-[17px] font-semibold text-white">
-                  Download Full Architectural Brochure
-                </h4>
-                <p className="text-[13px] text-white/70">
-                  Includes floor plans, elevation schematics, and developer payment milestones.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleDownloadBrochure}
-                className="shrink-0 px-5 py-2.5 bg-white text-black text-xs font-bold rounded-lg hover:bg-stone-200 transition-colors inline-flex items-center gap-2 cursor-pointer shadow-md"
-              >
-                {brochureRequested ? (
-                  <>
-                    <Check size={14} className="text-emerald-700" />
-                    <span>Brochure Ready</span>
-                  </>
-                ) : (
-                  <>
-                    <Download size={14} />
-                    <span>Download PDF</span>
-                  </>
-                )}
-              </button>
-            </div>
 
           </div>
 
@@ -656,69 +557,6 @@ export default function PropertyDetailPage({
         )}
 
       </div>
-
-      {/* 7. FULLSCREEN LIGHTBOX MODAL */}
-      {isLightboxOpen && (
-        <div className="fixed inset-0 z-[99999] bg-black/95 flex flex-col justify-between p-4 sm:p-8 animate-fade-in">
-          {/* Header Controls */}
-          <div className="flex items-center justify-between text-white z-10">
-            <span className="text-xs font-mono text-white/60">
-              {property.title} — {activePhotoIdx + 1} / {photos.length}
-            </span>
-            <button
-              onClick={() => setIsLightboxOpen(false)}
-              className="p-2 rounded-full bg-white/10 hover:bg-white text-white hover:text-black transition-colors cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          {/* Large Image with Next / Prev */}
-          <div className="relative flex-1 flex items-center justify-center max-h-[82vh] my-auto">
-            <img
-              src={photos[activePhotoIdx]}
-              alt={property.title}
-              className="max-h-full max-w-full object-contain rounded-lg shadow-2xl"
-            />
-
-            {/* Prev Button */}
-            {photos.length > 1 && (
-              <button
-                onClick={() => setActivePhotoIdx((prev) => (prev > 0 ? prev - 1 : photos.length - 1))}
-                className="absolute left-2 sm:left-6 p-3 rounded-full bg-black/60 hover:bg-white hover:text-black text-white transition-colors cursor-pointer"
-              >
-                <ChevronLeft size={24} />
-              </button>
-            )}
-
-            {/* Next Button */}
-            {photos.length > 1 && (
-              <button
-                onClick={() => setActivePhotoIdx((prev) => (prev < photos.length - 1 ? prev + 1 : 0))}
-                className="absolute right-2 sm:right-6 p-3 rounded-full bg-black/60 hover:bg-white hover:text-black text-white transition-colors cursor-pointer"
-              >
-                <ChevronRight size={24} />
-              </button>
-            )}
-          </div>
-
-          {/* Bottom Thumbnails Strip */}
-          <div className="flex items-center justify-center gap-2 overflow-x-auto py-2 z-10">
-            {photos.map((imgUrl, idx) => (
-              <button
-                key={idx}
-                onClick={() => setActivePhotoIdx(idx)}
-                className={`w-16 h-12 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-                  activePhotoIdx === idx ? 'border-white scale-105' : 'border-transparent opacity-50 hover:opacity-100'
-                }`}
-              >
-                <img src={imgUrl} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

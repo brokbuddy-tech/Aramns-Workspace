@@ -141,7 +141,7 @@ The POST receives the idempotency key and **never** the feed code. Appointment d
 
 - This individual feed supplies no organization/agency identity, career transaction value, seller performance statistics or testimonial content. Existing value containers use `—`; the profile's original no-testimonials condition is retained. No reviews/ratings are synthesized.
 - HVAC, garage spaces, HOA charges, lot dimensions and construction/handover years are not supplied in the inspected listing response. Their original containers show unavailable values.
-- Brochure downloads and portal-specific profile links are unavailable. The existing brochure control uses the existing toast; no fake download success is shown. Generic static portal directory links remain template navigation.
+- Brochure download and request controls have been removed from property pages and modals. The profile's Bayut and Property Finder links open the configured broker profiles in new tabs.
 - The original “AI Search” control performs immediate keyword matching across actual listing text and amenities. Its dialog states that AI interpretation is unavailable. There is no simulated AI delay or external AI service.
 - No exchange-rate feed, newsletter subscription service, calendar booking, chauffeur fulfillment or valuation computation is added. Existing viewing/valuation preferences are enquiries only.
 - Existing unrelated editorial/marketing pages, blog articles, decorative imagery, animations and FAQ structure remain. Their copy should be reviewed by the operator before publication; the broker API is not an editorial CMS.

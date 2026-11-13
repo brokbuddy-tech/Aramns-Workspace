@@ -270,18 +270,18 @@ export default function AgentDetailPage({
                   <ExternalLink size={11} className="text-[#9CA3AF]" />
                 </a>
                 <a
-                  aria-disabled="true" title="https://www.propertyfinder.ae/en/agent/arman-alam-467643"
+                  href="https://www.propertyfinder.ae/en/agent/arman-alam-467643"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
                 >
                   <span>Property Finder</span>
                   <ExternalLink size={11} className="text-[#9CA3AF]" />
                 </a>
                 <a
-                  aria-disabled="true" title="https://www.bayut.com/brokers/arman-alam-2851979.html"
+                  href="https://www.bayut.com/brokers/arman-alam-2851979.html"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
                 >
                   <span>Bayut</span>

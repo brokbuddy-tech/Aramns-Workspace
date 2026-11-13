@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Share2, MapPin, Bed, Bath, Maximize2, Calendar, 
   Shield, Check, Compass, Car, Sparkles, Phone, Mail, ArrowRight,
-  FileText, Home, Thermometer, DollarSign, Layers
+  Home, Thermometer, DollarSign, Layers
 } from 'lucide-react';
 import { AGENTS } from '../data/agents';
 import MortgageCalculator from './MortgageCalculator';
@@ -15,8 +15,7 @@ export default function PropertyDetailModal({
   onClose, 
   isFavorite, 
   onToggleFavorite, 
-  onScheduleShowing,
-  showToast
+  onScheduleShowing
 }) {
   const inquiry = useInquiry();
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
@@ -25,7 +24,6 @@ export default function PropertyDetailModal({
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [isBooked, setIsBooked] = useState(false);
-  const [brochureRequested, setBrochureRequested] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -58,10 +56,6 @@ export default function PropertyDetailModal({
     if (!sent) return;
     setIsBooked(true);
     onScheduleShowing?.({propertyTitle:property.title,date:bookingDate,time:bookingTime,clientName,clientEmail});
-  };
-
-  const handleRequestBrochure = () => {
-    showToast?.('A downloadable brochure is currently unavailable. Contact the broker for property documents.', 'info');
   };
 
   const handleShare = () => {
@@ -280,7 +274,7 @@ export default function PropertyDetailModal({
                   </div>
                 </div>
 
-                {/* Direct Action Buttons: Schedule Private Tour & Request Brochure */}
+                {/* Schedule Private Tour */}
                 <div className="space-y-2.5 pt-2 border-t border-stone-200">
                   <button
                     type="button"
@@ -294,23 +288,6 @@ export default function PropertyDetailModal({
                     <span>Schedule Private Tour</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={handleRequestBrochure}
-                    className="w-full py-3 rounded-lg bg-white border border-[#E5E7EB] text-[#0A0A0C] font-medium text-xs tracking-wider uppercase transition-colors hover:bg-stone-50 flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    {brochureRequested ? (
-                      <>
-                        <Check size={14} className="text-emerald-600" />
-                        <span className="text-emerald-700">Brochure Sent to Email</span>
-                      </>
-                    ) : (
-                      <>
-                        <FileText size={14} />
-                        <span>Request Brochure</span>
-                      </>
-                    )}
-                  </button>
                 </div>
               </div>
 
