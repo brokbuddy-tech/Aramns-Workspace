@@ -1,10 +1,9 @@
+import {popularAreaLinks, listingAreaId, normalizeArea} from '../lib/property-popularity.mjs';
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  Search, SlidersHorizontal, X, ArrowUpDown, MapPin, 
-  Building2, Home, Key, Sparkles, Filter, ChevronRight,
-  RotateCcw, Check, PhoneCall, ShieldCheck, Layers, Bot, Send
-} from 'lucide-react';
+import {X, Sparkles, Filter, RotateCcw, PhoneCall, ShieldCheck} from 'lucide-react';
 import PropertyCard from './PropertyCard';
+import PropertySearchBar from './PropertySearchBar';
+import {emptyAdvancedFilters, readListingSearch, writeListingSearch, matchesAdvancedFilters, advancedFilterChips, propertySector, hasListingViews, compareListingActivity, matchesRoomCount} from '../lib/property-filters.mjs';
 import {plainText} from './RichText';
 import { PROPERTY_MARKET_CATEGORIES } from '../data/properties';
 
@@ -15,40 +14,27 @@ export default function PropertyCategoryPage({
   onToggleFavorite,
   onSelectProperty,
   onNavigate,
-  onContactClick
+  onContactClick,
+  quickLinksLimit = 6
 }) {
-  // Filter States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('All');
-  const [selectedType, setSelectedType] = useState('All');
-  const [selectedPriceRange, setSelectedPriceRange] = useState('All');
-  const [selectedBeds, setSelectedBeds] = useState('All');
-  const [selectedAmenity, setSelectedAmenity] = useState('All');
-  const [sortBy, setSortBy] = useState('featured');
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [initialSearch] = useState(() => readListingSearch(window.location.search));
+  const [searchQuery, setSearchQuery] = useState(initialSearch.basic.q);
+  const [selectedAreaId, setSelectedAreaId] = useState(initialSearch.basic.areaId || '');
+  const [selectedLocation, setSelectedLocation] = useState(initialSearch.basic.location || 'All');
+  const [selectedType, setSelectedType] = useState(initialSearch.basic.type || 'All');
+  const [selectedPriceRange, setSelectedPriceRange] = useState(initialSearch.basic.price || 'All');
+  const [selectedBeds, setSelectedBeds] = useState(initialSearch.basic.beds || 'All');
+  const [selectedAmenity, setSelectedAmenity] = useState(initialSearch.basic.amenity || 'All');
+  const [sortBy, setSortBy] = useState(initialSearch.basic.sort || 'featured');
+  const [advancedFilters, setAdvancedFilters] = useState(initialSearch.advanced);
   const [visibleCount, setVisibleCount] = useState(6);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // AI Description Search States
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-  const [aiDescription, setAiDescription] = useState('');
-  const [activeAiPrompt, setActiveAiPrompt] = useState('');
+  const [aiDescription, setAiDescription] = useState(initialSearch.basic.description);
+  const [activeAiPrompt, setActiveAiPrompt] = useState(initialSearch.basic.description);
   const [isAiSearching, setIsAiSearching] = useState(false);
-
-  // Curated Luxury Amenities Options
-  const amenityOptions = useMemo(() => [
-    { label: 'All Amenities', value: 'All' },
-    { label: 'Private / Infinity Pool', value: 'pool' },
-    { label: 'Private Beach / Beachfront', value: 'beach' },
-    { label: 'Superyacht / Marina Berth', value: 'berth' },
-    { label: 'Burj Khalifa / Skyline Views', value: 'view' },
-    { label: 'Private Spa & Hammam', value: 'spa' },
-    { label: 'Wine Cellar & Tasting Room', value: 'wine' },
-    { label: 'Private Cinema Room', value: 'cinema' },
-    { label: 'Smart Home Automation', value: 'smart' },
-    { label: 'Private Elevator', value: 'elevator' },
-    { label: '24/7 Butler & Concierge', value: 'butler' }
-  ], []);
 
   // Quick Inspiration Prompts for Description Search
   const aiInspirations = useMemo(() => [
@@ -105,23 +91,34 @@ export default function PropertyCategoryPage({
   // Scroll to top when category changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    // Reset filters on category switch for fresh context
-    setSearchQuery('');
-    setSelectedLocation('All');
-    setSelectedType('All');
-    setSelectedPriceRange('All');
-    setSelectedBeds('All');
-    setSelectedAmenity('All');
-    setActiveAiPrompt('');
-    setAiDescription('');
-    setSortBy('featured');
-    setVisibleCount(6);
   }, [category]);
+
+  useEffect(() => {
+    const query = writeListingSearch(window.location.search, {
+      q:searchQuery, location:selectedLocation, areaId:selectedAreaId, type:selectedType, price:selectedPriceRange,
+      beds:selectedBeds, amenity:selectedAmenity, sort:sortBy, description:activeAiPrompt,
+    }, advancedFilters);
+    const url = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+    window.history.replaceState(window.history.state, '', url);
+  }, [selectedAreaId, searchQuery, selectedLocation, selectedType, selectedPriceRange, selectedBeds, selectedAmenity, sortBy, activeAiPrompt, advancedFilters]);
+
+  useEffect(() => {
+    const restore = () => {
+      const {basic, advanced} = readListingSearch(window.location.search);
+      setSelectedAreaId(basic.areaId || ''); setSearchQuery(basic.q); setSelectedLocation(basic.location || 'All');
+      setSelectedType(basic.type || 'All'); setSelectedPriceRange(basic.price || 'All');
+      setSelectedBeds(basic.beds || 'All'); setSelectedAmenity(basic.amenity || 'All');
+      setSortBy(basic.sort || 'featured'); setActiveAiPrompt(basic.description);
+      setAiDescription(basic.description); setAdvancedFilters(advanced);
+    };
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, []);
 
   // Reset pagination when active filter inputs change
   useEffect(() => {
     setVisibleCount(6);
-  }, [searchQuery, selectedLocation, selectedType, selectedPriceRange, selectedBeds, selectedAmenity, activeAiPrompt, sortBy]);
+  }, [selectedAreaId, searchQuery, selectedLocation, selectedType, selectedPriceRange, selectedBeds, selectedAmenity, activeAiPrompt, sortBy, advancedFilters]);
 
   // Current category metadata
   const currentCategoryMeta = useMemo(() => {
@@ -138,10 +135,17 @@ export default function PropertyCategoryPage({
         return p.marketCategory === 'rent' || p.listingType === 'FOR RENT';
       }
       if (category === 'off-plan') return p.readiness === 'OFFPLAN';
-      if (category === 'commercial') return /commercial/i.test(p.category);
+      if (category === 'commercial') return propertySector(p) === 'commercial';
       return true;
     });
   }, [properties, category]);
+
+  const amenityOptions = useMemo(() => {
+    const amenities = [...new Set(baseCategoryProperties.flatMap(property => property.amenities || []))].sort();
+    return [{label:'All Amenities', value:'All'}, ...amenities.map(label => ({
+      label: /pool/i.test(label) ? 'Pool' : label, value: /pool/i.test(label) ? 'pool' : label.toLowerCase(),
+    }))].filter((option, index, options) => options.findIndex(item => item.value === option.value) === index);
+  }, [baseCategoryProperties]);
 
   // Available unique locations for current category
   const availableLocations = useMemo(() => {
@@ -153,17 +157,15 @@ export default function PropertyCategoryPage({
     return ['All', ...Array.from(locs).sort()];
   }, [baseCategoryProperties]);
 
-  // Available unique types for current category
-  const availableTypes = useMemo(() => {
-    const types = new Set();
-    baseCategoryProperties.forEach(p => {
-      if (p.category) types.add(p.category);
-    });
-    return ['All', ...Array.from(types).sort()];
-  }, [baseCategoryProperties]);
-
-  const sourceCurrencies = [...new Set(baseCategoryProperties.map(p=>p.currency))];
-  const priceCurrency = sourceCurrencies.length === 1 ? sourceCurrencies[0] : '';
+  const sourceCurrencies = useMemo(() => [...new Set(baseCategoryProperties.map(p=>p.currency))], [baseCategoryProperties]);
+  const canComparePrice = sourceCurrencies.length === 1 || Boolean(advancedFilters.currency);
+  const hasViewCounts = baseCategoryProperties.some(hasListingViews);
+  useEffect(() => {
+    if (sortBy === 'most-viewed' && !hasViewCounts) setSortBy('latest');
+  }, [sortBy, hasViewCounts]);
+  const priceCurrency = advancedFilters.currency || (sourceCurrencies.length === 1 ? sourceCurrencies[0] : '');
+  const extraChips = advancedFilterChips(advancedFilters, priceCurrency);
+  const commercialOnly = advancedFilters.sector === 'commercial' || category === 'commercial' || (selectedType !== 'All' && baseCategoryProperties.filter(p => p.category === selectedType).every(p => propertySector(p) === 'commercial'));
 
   // Dynamic price ranges based on category
   const priceRangeOptions = useMemo(() => {
@@ -184,8 +186,9 @@ export default function PropertyCategoryPage({
   }, [category, priceCurrency]);
 
   // Filter application
-  const filteredProperties = useMemo(() => {
+  const filterProperties = (advanced, {type = selectedType, beds = selectedBeds, amenity = selectedAmenity, priceRange = selectedPriceRange} = {}) => {
     return baseCategoryProperties.filter(p => {
+      if (!matchesAdvancedFilters(p, advanced, sourceCurrencies)) return false;
       // 0. AI Natural Language Description Search Matching
       if (activeAiPrompt.trim()) {
         const score = getAiScore(p, activeAiPrompt);
@@ -195,88 +198,87 @@ export default function PropertyCategoryPage({
 
       // 1. Search Query
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+        const q = searchQuery.trim().toLowerCase();
         const matchesTitle = p.title?.toLowerCase().includes(q);
         const matchesLoc = p.location?.toLowerCase().includes(q);
         const matchesCity = p.cityState?.toLowerCase().includes(q);
         const matchesType = p.propertyType?.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q);
-        const matchesHeadline = p.headline?.toLowerCase().includes(q);
+        const matchesHeadline = p.headline?.toLowerCase().includes(q) || p.id?.toLowerCase().includes(q) || plainText(p.description).toLowerCase().includes(q) || p.amenities?.some(amenity => amenity.toLowerCase().includes(q));
         if (!matchesTitle && !matchesLoc && !matchesCity && !matchesType && !matchesHeadline) {
           return false;
         }
       }
 
       // 2. Location
-      if (selectedLocation !== 'All') {
+      if (selectedAreaId && listingAreaId(p) !== selectedAreaId) return false;
+      if (!selectedAreaId && selectedLocation !== 'All') {
         const pLoc = p.neighborhood || p.cityState || '';
-        if (!pLoc.toLowerCase().includes(selectedLocation.toLowerCase())) {
+        if (!normalizeArea(pLoc).includes(normalizeArea(selectedLocation))) {
           return false;
         }
       }
 
       // 3. Property Sub-Type
-      if (selectedType !== 'All') {
-        const matchesCat = p.category === selectedType;
-        const matchesPropType = p.propertyType?.toLowerCase().includes(selectedType.toLowerCase());
+      if (type !== 'All') {
+        const matchesCat = p.category === type;
+        const matchesPropType = p.propertyType?.toLowerCase().includes(type.toLowerCase());
         if (!matchesCat && !matchesPropType) {
           return false;
         }
       }
 
       // 4. Price Range
-      if (selectedPriceRange !== 'All' && sourceCurrencies.length === 1) {
+      if (priceRange !== 'All' && (sourceCurrencies.length === 1 || advanced.currency) && advanced.minPrice === '' && advanced.maxPrice === '') {
         if (category === 'rent') {
-          if (selectedPriceRange === 'under-20k' && p.price >= 20000) return false;
-          if (selectedPriceRange === '20k-35k' && (p.price < 20000 || p.price > 35000)) return false;
-          if (selectedPriceRange === 'above-35k' && p.price < 35000) return false;
+          if (priceRange === 'under-20k' && p.price >= 20000) return false;
+          if (priceRange === '20k-35k' && (p.price < 20000 || p.price > 35000)) return false;
+          if (priceRange === 'above-35k' && p.price < 35000) return false;
         } else {
-          if (selectedPriceRange === 'under-15m' && p.price >= 15000000) return false;
-          if (selectedPriceRange === '15m-25m' && (p.price < 15000000 || p.price > 25000000)) return false;
-          if (selectedPriceRange === 'above-25m' && p.price < 25000000) return false;
+          if (priceRange === 'under-15m' && p.price >= 15000000) return false;
+          if (priceRange === '15m-25m' && (p.price < 15000000 || p.price > 25000000)) return false;
+          if (priceRange === 'above-25m' && p.price < 25000000) return false;
         }
       }
 
       // 5. Bedrooms
-      if (selectedBeds !== 'All') {
-        const minBeds = parseInt(selectedBeds, 10);
-        if (typeof p.beds !== 'number' || p.beds < minBeds) return false;
+      if (beds !== 'All' && advanced.sector !== 'commercial') {
+        if (!matchesRoomCount(p.beds,beds) || (beds === 'studio' && propertySector(p) === 'commercial')) return false;
       }
 
       // 6. Amenities Filter
-      if (selectedAmenity !== 'All') {
-        const q = selectedAmenity.toLowerCase();
+      if (amenity !== 'All') {
+        const q = amenity.toLowerCase();
         const hasAmenity = (p.amenities || []).some(a => a.toLowerCase().includes(q));
         if (!hasAmenity) return false;
       }
 
       return true;
-    }).sort((a, b) => {
+    });
+  };
+
+  const filteredProperties = useMemo(() => {
+    return filterProperties(advancedFilters).sort((a, b) => {
       // Prioritize AI relevance if AI search is active
       if (activeAiPrompt.trim() && sortBy === 'featured') {
         const diff = getAiScore(b, activeAiPrompt) - getAiScore(a, activeAiPrompt);
         if (diff !== 0) return diff;
       }
-      if (sortBy === 'price-asc' && sourceCurrencies.length <= 1) return a.price - b.price;
-      if (sortBy === 'price-desc' && sourceCurrencies.length <= 1) return b.price - a.price;
-      if (sortBy === 'sqft-desc') return b.sqft - a.sqft;
-      if (sortBy === 'beds-desc') return b.beds - a.beds;
+      if (sortBy === 'price-asc' && canComparePrice) return a.price - b.price;
+      if (sortBy === 'price-desc' && canComparePrice) return b.price - a.price;
+      if (sortBy === 'sqft-desc') return (typeof b.sqft === 'number' ? b.sqft : -1) - (typeof a.sqft === 'number' ? a.sqft : -1);
+      if (sortBy === 'beds-desc') return (typeof b.beds === 'number' ? b.beds : -1) - (typeof a.beds === 'number' ? a.beds : -1);
+      if (sortBy === 'latest' || sortBy === 'most-viewed') return compareListingActivity(a,b,sortBy);
       // Default: featured first
       if (a.featured && !b.featured) return -1;
       if (!a.featured && b.featured) return 1;
       return 0;
     });
-  }, [baseCategoryProperties, searchQuery, selectedLocation, selectedType, selectedPriceRange, selectedBeds, selectedAmenity, activeAiPrompt, sortBy, category]);
+  }, [selectedAreaId, baseCategoryProperties, searchQuery, selectedLocation, selectedType, selectedPriceRange, selectedBeds, selectedAmenity, activeAiPrompt, sortBy, category, advancedFilters, sourceCurrencies, canComparePrice, hasViewCounts]);
 
-  // Check if any filter is active
-  const hasActiveFilters = searchQuery !== '' || 
-    selectedLocation !== 'All' || 
-    selectedType !== 'All' || 
-    selectedPriceRange !== 'All' || 
-    selectedBeds !== 'All' ||
-    selectedAmenity !== 'All' ||
-    activeAiPrompt !== '';
+  const quickLinks = useMemo(() => popularAreaLinks(filteredProperties, {path:window.location.pathname, search:writeListingSearch('', {q:searchQuery,type:selectedType,price:selectedPriceRange,beds:selectedBeds,amenity:selectedAmenity,description:activeAiPrompt},advancedFilters), limit:quickLinksLimit}), [filteredProperties, quickLinksLimit, searchQuery, selectedType, selectedPriceRange, selectedBeds, selectedAmenity, activeAiPrompt, advancedFilters]);
 
   const resetFilters = () => {
+    setSelectedAreaId('');
     setSearchQuery('');
     setSelectedLocation('All');
     setSelectedType('All');
@@ -286,7 +288,22 @@ export default function PropertyCategoryPage({
     setActiveAiPrompt('');
     setAiDescription('');
     setSortBy('featured');
+    setAdvancedFilters(emptyAdvancedFilters());
   };
+
+  const activeChips = [
+    ...(activeAiPrompt ? [{key:'description', label:`Search: ${activeAiPrompt}`, remove:() => {setActiveAiPrompt(''); setAiDescription('');}}] : []),
+    ...(searchQuery ? [{key:'query', label:`Keyword: ${searchQuery}`, remove:() => setSearchQuery('')}] : []),
+    ...(selectedLocation !== 'All' ? [{key:'location', label:selectedLocation, remove:() => {setSelectedAreaId('');setSelectedLocation('All');}}] : []),
+    ...(selectedType !== 'All' ? [{key:'type', label:selectedType, remove:() => setSelectedType('All')}] : []),
+    ...(selectedPriceRange !== 'All' && advancedFilters.minPrice === '' && advancedFilters.maxPrice === '' ? [{key:'price', label:priceRangeOptions.find(option => option.value === selectedPriceRange)?.label || selectedPriceRange, remove:() => setSelectedPriceRange('All')}] : []),
+    ...(selectedBeds !== 'All' ? [{key:'beds', label:selectedBeds === 'studio' ? 'Studio' : `${selectedBeds} ${selectedBeds === '1' ? 'bed' : 'beds'}`, remove:() => setSelectedBeds('All')}] : []),
+    ...(selectedAmenity !== 'All' ? [{key:'amenity', label:amenityOptions.find(option => option.value === selectedAmenity)?.label || selectedAmenity, remove:() => setSelectedAmenity('All')}] : []),
+    ...extraChips.map(chip => ({...chip, remove:() => {
+      setAdvancedFilters(previous => ({...previous, ...chip.clear}));
+      if (chip.key === 'currency' && sourceCurrencies.length > 1) {setSelectedPriceRange('All'); if (sortBy.startsWith('price-')) setSortBy('featured');}
+    }})),
+  ];
 
   const handleExecuteAiSearch = () => {
     if (!aiDescription.trim()) return;
@@ -295,14 +312,12 @@ export default function PropertyCategoryPage({
     document.getElementById('listings')?.scrollIntoView({behavior:'smooth'});
   };
 
-  const getCategoryCount = (catId) => {
-    return properties.filter(p => {
-      if (catId === 'all') return true;
-      if (catId === 'buy') return p.marketCategory === 'buy' || p.listingType === 'FOR SALE';
-      if (catId === 'rent') return p.marketCategory === 'rent' || p.listingType === 'FOR RENT';
-      return false;
-    }).length;
-  };
+  const getCategoryCount = id => properties.filter(property => {
+    if (id === 'all') return true;
+    if (id === 'buy') return property.marketCategory === 'buy' || property.listingType === 'FOR SALE';
+    if (id === 'rent') return property.marketCategory === 'rent' || property.listingType === 'FOR RENT';
+    return false;
+  }).length;
 
   return (
     <div className="w-full bg-[#FDFDFD] min-h-screen text-[#0A0A0C]">
@@ -315,7 +330,7 @@ export default function PropertyCategoryPage({
 
         <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-12 relative z-10">
           
-          {/* Headline, Description & Category Switcher Tabs */}
+          {/* Page headline and introduction */}
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pt-2">
             <div className="max-w-3xl space-y-4">
               <h1 className="text-[36px] sm:text-[46px] lg:text-[54px] font-semibold text-white tracking-tight leading-[1.12] font-sans">
@@ -327,27 +342,15 @@ export default function PropertyCategoryPage({
               </p>
             </div>
 
-            {/* Keep every category on one row, including narrow mobile screens. */}
             <div role="group" aria-label="Listing categories" className="flex flex-nowrap items-center gap-1 sm:gap-3 p-1.5 bg-white/10 backdrop-blur-md rounded-[12px] border border-white/10 w-full sm:w-fit max-w-full overflow-x-auto shrink-0 self-start lg:self-end">
-              {PROPERTY_MARKET_CATEGORIES.map((tab) => {
+              {PROPERTY_MARKET_CATEGORIES.map(tab => {
                 const isActive = tab.id === category;
-                const count = getCategoryCount(tab.id);
                 return (
-                  <button
-                    key={tab.id}
-                    onClick={() => onNavigate(tab.path)}
-                    className={`flex-1 sm:flex-none shrink-0 px-2 sm:px-5 py-2.5 rounded-[9px] text-[12px] sm:text-[14px] font-medium transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2.5 whitespace-nowrap select-none cursor-pointer ${
-                      isActive
-                        ? 'bg-white text-black shadow-md font-semibold'
-                        : 'text-white/80 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
+                  <button key={tab.id} type="button" aria-pressed={isActive}
+                    onClick={() => {if (!isActive) onNavigate(tab.path);}}
+                    className={`flex-1 sm:flex-none shrink-0 px-2 sm:px-5 py-2.5 rounded-[9px] text-[12px] sm:text-[14px] font-medium transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2.5 whitespace-nowrap select-none cursor-pointer ${isActive ? 'bg-white text-black shadow-md font-semibold' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>
                     <span>{tab.label}</span>
-                    <span className={`shrink-0 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      isActive ? 'bg-black text-white' : 'bg-white/20 text-white'
-                    }`}>
-                      {count}
-                    </span>
+                    <span className={`shrink-0 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? 'bg-black text-white' : 'bg-white/20 text-white'}`}>{getCategoryCount(tab.id)}</span>
                   </button>
                 );
               })}
@@ -360,240 +363,52 @@ export default function PropertyCategoryPage({
       {/* 2. FILTER BAR & PROPERTY LISTINGS SECTION */}
       <section id="listings" className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-12 py-12 lg:py-16 space-y-10">
         
-        {/* ====================================================
-            FILTER COMPONENT ON TOP OF THE LISTING SECTION
-            ==================================================== */}
-        <div className="bg-white border border-[#E5E7EB] rounded-[16px] shadow-sm p-4 sm:p-6 space-y-4">
-          
-          {/* TOP ROW: Search Bar (Left) and Description Search Button (Right Corner) */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
-            
-            {/* Search Input (Left Side) */}
-            <div className="relative flex-1">
-              <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Search ${category} properties by name, area, or keywords...`}
-                className="w-full pl-10 pr-10 py-3 bg-[#F9F9FB] border border-[#E5E7EB] rounded-[10px] text-[14px] text-[#0A0A0C] placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-black p-1 cursor-pointer"
-                  title="Clear search"
-                >
-                  <X size={15} />
-                </button>
-              )}
-            </div>
+        <nav aria-label="Popular areas" className="rounded-xl border border-stone-200 bg-white/70 p-4 sm:p-5">
+          <h2 className="text-sm font-semibold text-stone-900 mb-3">Popular areas</h2>
+          {quickLinks.length ? <div className="flex flex-wrap gap-2">
+            {quickLinks.map(area => <a key={area.id} href={area.href} className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-2 text-xs text-stone-700 hover:border-amber-400 hover:text-stone-950 transition-colors">
+              <span>{area.name}</span><span className="text-stone-500">{area.listingCount} {area.listingCount===1 ? 'listing':'listings'} · {area.viewCount} views</span>
+            </a>)}
+          </div> : <p className="text-xs text-stone-500">No areas match the current search.</p>}
+        </nav>
 
-            {/* AI Natural Description Search Button (Right Corner) */}
-            <button
-              type="button"
-              onClick={() => setIsAiModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-stone-900 via-black to-stone-900 hover:from-black hover:to-black text-white text-[13px] font-bold rounded-[10px] transition-all shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer shrink-0 border border-white/10"
-              title="Keyword matching in live listings; AI interpretation is unavailable"
-            >
-              <Sparkles size={16} className="text-amber-400 animate-pulse" />
-              <span>AI Search</span>
-            </button>
-          </div>
-
-          {/* BELOW: Other Filter Options / Dropdowns */}
-          <div className="pt-2 border-t border-[#F1F3F5]">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              
-              {/* Location Filter */}
-              <div className="relative">
-                <label className="block text-[10px] uppercase font-bold text-stone-600 mb-1 tracking-wider">
-                  Location
-                </label>
-                <select
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="w-full bg-[#F9F9FB] border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[13px] text-[#0A0A0C] font-medium focus:outline-none focus:border-black cursor-pointer truncate"
-                >
-                  <option value="All">All Locations</option>
-                  {availableLocations.filter(loc => loc !== 'All').map(loc => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Property Type Filter */}
-              <div className="relative">
-                <label className="block text-[10px] uppercase font-bold text-stone-600 mb-1 tracking-wider">
-                  Property Type
-                </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full bg-[#F9F9FB] border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[13px] text-[#0A0A0C] font-medium focus:outline-none focus:border-black cursor-pointer truncate"
-                >
-                  <option value="All">All Types</option>
-                  {availableTypes.filter(t => t !== 'All').map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Price Range Filter */}
-              <div className="relative">
-                <label className="block text-[10px] uppercase font-bold text-stone-600 mb-1 tracking-wider">
-                  Price Bracket
-                </label>
-                <select
-                  disabled={sourceCurrencies.length !== 1} title={sourceCurrencies.length !== 1 ? 'Price filters require one source currency' : undefined} value={selectedPriceRange}
-                  onChange={(e) => setSelectedPriceRange(e.target.value)}
-                  className="w-full bg-[#F9F9FB] border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[13px] text-[#0A0A0C] font-medium focus:outline-none focus:border-black cursor-pointer truncate"
-                >
-                  {priceRangeOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Bedrooms Filter */}
-              <div className="relative">
-                <label className="block text-[10px] uppercase font-bold text-stone-600 mb-1 tracking-wider">
-                  Bedrooms
-                </label>
-                <select
-                  value={selectedBeds}
-                  onChange={(e) => setSelectedBeds(e.target.value)}
-                  className="w-full bg-[#F9F9FB] border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[13px] text-[#0A0A0C] font-medium focus:outline-none focus:border-black cursor-pointer truncate"
-                >
-                  <option value="All">Any Beds</option>
-                  <option value="3">3+ Beds</option>
-                  <option value="4">4+ Beds</option>
-                  <option value="5">5+ Beds</option>
-                  <option value="6">6+ Beds</option>
-                </select>
-              </div>
-
-              {/* Amenities Filter */}
-              <div className="relative">
-                <label className="block text-[10px] uppercase font-bold text-stone-600 mb-1 tracking-wider">
-                  Amenities
-                </label>
-                <select
-                  value={selectedAmenity}
-                  onChange={(e) => setSelectedAmenity(e.target.value)}
-                  className="w-full bg-[#F9F9FB] border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[13px] text-[#0A0A0C] font-medium focus:outline-none focus:border-black cursor-pointer truncate"
-                >
-                  {amenityOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Sort Filter */}
-              <div className="relative">
-                <label className="block text-[10px] uppercase font-bold text-stone-600 mb-1 tracking-wider">
-                  Sort By
-                </label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full bg-[#F9F9FB] border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[13px] text-[#0A0A0C] font-medium focus:outline-none focus:border-black cursor-pointer truncate"
-                >
-                  <option value="featured">Featured First</option>
-                  <option value="price-asc" disabled={sourceCurrencies.length > 1}>Price: Low to High</option>
-                  <option value="price-desc" disabled={sourceCurrencies.length > 1}>Price: High to Low</option>
-                  <option value="sqft-desc">Largest Sqft</option>
-                  <option value="beds-desc">Most Bedrooms</option>
-                </select>
-              </div>
-
-            </div>
-          </div>
-
-          {/* Active Filters Bar & Counter */}
-          <div className="pt-3 border-t border-[#F1F3F5] flex flex-wrap items-center justify-between gap-3 text-[13px]">
-            
-            <div className="flex items-center gap-2 text-stone-600">
-              <span className="font-semibold text-black">{filteredProperties.length}</span>
-              <span>
-                {filteredProperties.length === 1 ? 'residence' : 'properties'} found in {currentCategoryMeta.label}
-              </span>
-            </div>
-
-            {hasActiveFilters && (
-              <div className="flex flex-wrap items-center gap-2">
-                {activeAiPrompt && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 font-semibold border border-amber-300 text-[12px] shadow-2xs">
-                    <Sparkles size={12} className="text-amber-600 shrink-0" />
-                    <span>Search: &ldquo;{activeAiPrompt}&rdquo;</span>
-                    <button onClick={() => { setActiveAiPrompt(''); setAiDescription(''); }} className="hover:text-black cursor-pointer ml-0.5">
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-                {searchQuery && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 text-[12px]">
-                    Keyword: "{searchQuery}"
-                    <button onClick={() => setSearchQuery('')} className="hover:text-black cursor-pointer">
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-                {selectedLocation !== 'All' && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 text-[12px]">
-                    {selectedLocation}
-                    <button onClick={() => setSelectedLocation('All')} className="hover:text-black cursor-pointer">
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-                {selectedType !== 'All' && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 text-[12px]">
-                    {selectedType}
-                    <button onClick={() => setSelectedType('All')} className="hover:text-black cursor-pointer">
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-                {selectedPriceRange !== 'All' && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 text-[12px]">
-                    Price Filter Active
-                    <button onClick={() => setSelectedPriceRange('All')} className="hover:text-black cursor-pointer">
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-                {selectedBeds !== 'All' && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 text-[12px]">
-                    {selectedBeds}+ Beds
-                    <button onClick={() => setSelectedBeds('All')} className="hover:text-black cursor-pointer">
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-                {selectedAmenity !== 'All' && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 text-[12px]">
-                    Amenity: {amenityOptions.find(o => o.value === selectedAmenity)?.label || selectedAmenity}
-                    <button onClick={() => setSelectedAmenity('All')} className="hover:text-black cursor-pointer">
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-
-                <button
-                  onClick={resetFilters}
-                  className="inline-flex items-center gap-1 text-[12px] font-semibold text-red-600 hover:text-red-700 ml-1 underline underline-offset-2 transition-colors cursor-pointer"
-                >
-                  <RotateCcw size={12} />
-                  Reset Filters
-                </button>
-              </div>
-            )}
-
-          </div>
-
-        </div>
+        <PropertySearchBar
+          category={category}
+          value={{query:searchQuery, location:selectedLocation, type:selectedType, priceRange:selectedPriceRange, beds:selectedBeds, amenity:selectedAmenity, sort:sortBy, advanced:advancedFilters}}
+          onChange={changes => {
+            if ('query' in changes) setSearchQuery(changes.query);
+            if ('location' in changes) {setSelectedAreaId('');setSelectedLocation(changes.location);}
+            if ('type' in changes) {
+              setSelectedType(changes.type);
+              if (changes.type !== 'All' && baseCategoryProperties.filter(property => property.category === changes.type).every(property => propertySector(property) === 'commercial')) {
+                setSelectedBeds('All');
+                setAdvancedFilters(previous => ({...previous,baths:'All'}));
+              }
+            }
+            if ('beds' in changes) setSelectedBeds(changes.beds);
+            if ('amenity' in changes) setSelectedAmenity(changes.amenity);
+            if ('priceRange' in changes) setSelectedPriceRange(changes.priceRange);
+            if ('sort' in changes) setSortBy(changes.sort);
+            if ('advanced' in changes) {
+              setAdvancedFilters(changes.advanced);
+              if (!changes.advanced.currency && sourceCurrencies.length > 1) {
+                setSelectedPriceRange('All');
+                if (sortBy.startsWith('price-')) setSortBy('featured');
+              }
+            }
+          }}
+          locations={availableLocations}
+          properties={baseCategoryProperties}
+          priceOptions={priceRangeOptions}
+          currency={priceCurrency}
+          commercialOnly={commercialOnly}
+          hasViewCounts={hasViewCounts}
+          previewCount={draft => filterProperties(draft.advanced, draft).length}
+          resultCount={filteredProperties.length}
+          activeChips={activeChips}
+          onReset={resetFilters}
+          onDescriptionSearch={() => setIsAiModalOpen(true)}
+        />
 
         {/* Active AI Prompt Banner */}
         {activeAiPrompt && (
@@ -627,7 +442,7 @@ export default function PropertyCategoryPage({
 
         {/* 3. PROPERTY GRID */}
         {filteredProperties.length > 0 ? (
-          <div className="space-y-12">
+          <div id="property-results" className="scroll-mt-24 space-y-12">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredProperties.slice(0, visibleCount).map((property) => (
                 <PropertyCard
@@ -679,7 +494,7 @@ export default function PropertyCategoryPage({
           </div>
         ) : (
           /* Empty Search State */
-          <div className="bg-white border border-[#E5E7EB] rounded-[16px] py-16 px-6 text-center space-y-4 max-w-lg mx-auto">
+          <div id="property-results" className="scroll-mt-24 bg-white border border-[#E5E7EB] rounded-[16px] py-16 px-6 text-center space-y-4 max-w-lg mx-auto">
             <div className="w-16 h-16 mx-auto rounded-full bg-stone-100 flex items-center justify-center text-stone-400">
               <Filter size={24} />
             </div>

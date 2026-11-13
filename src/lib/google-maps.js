@@ -2,10 +2,7 @@ import {useEffect, useState} from 'react';
 
 let mapsPromise;
 
-export function validCoordinates(value) {
-  return value != null && Number.isFinite(value.lat) && Math.abs(value.lat) <= 90
-    && Number.isFinite(value.lng) && Math.abs(value.lng) <= 180;
-}
+export {validCoordinates} from './map-geography.mjs';
 
 // One SDK/configuration request per page, shared by every map component.
 export function loadGoogleMaps() {

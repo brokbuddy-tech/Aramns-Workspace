@@ -60,30 +60,36 @@ export function mapListing(value, agent, base) {
   const uniqueImages = [...new Set(images)];
   const location = [value.community, value.city].filter(Boolean).join(', ');
   const type = string(value.propertyType || value.type);
+  const handover = string(value.handoverDate) || string(value.handover);
+  const handoverYear = Number.isInteger(value.handoverYear) ? value.handoverYear : Number(handover.match(/\b(20\d{2}|21\d{2})\b/)?.[1]);
+  const rentFrequency = string(value.rentFrequency).toUpperCase();
   return {
     id: /^[A-Za-z0-9_-]{1,120}$/.test(value.id || '') ? value.id : invalid(), title: required(value.title), description: string(value.description), headline: '',
     price, currency: value.currency, priceFormatted: new Intl.NumberFormat('en-US', {style:'currency',currency:value.currency,maximumFractionDigits:2}).format(price),
-    location: string(value.mapAddress) || location, cityState: location, neighborhood: string(value.community), country:'',
+    location: string(value.mapAddress) || location, cityState: location, neighborhood: string(value.community), city:string(value.city), areaId:string(value.areaId), country:'',
     marketCategory: value.transactionType === 'RENT' ? 'rent' : 'buy', transactionType:value.transactionType,
     listingType: value.transactionType === 'RENT' ? 'FOR RENT' : 'FOR SALE',
-    status: value.status, readiness: string(value.readiness), category:type, propertyType:type,
+    status: value.status, readiness: string(value.readiness), category:type, propertyType:type, propertyClass:string(value.category),
     beds: optionalNumber(value.bedrooms) ?? '—', baths: optionalNumber(value.bathrooms) ?? '—', sqft: optionalNumber(value.builtUpArea) ?? '—',
     yearBuilt:null, heatingCooling:null, garage:null, hoaFees:null, lotSize:null,
     images:uniqueImages, image:uniqueImages[0], amenities:strings(value.amenities), agentId:agent.id,
     featured: value.isFeatured === true || value.featured === true, createdAt: string(value.createdAt),
+    viewCount: Number.isSafeInteger(value.viewCount) && value.viewCount >= 0 ? value.viewCount : null,
+    handover, handoverYear: handoverYear >= 2000 && handoverYear < 2200 ? handoverYear : null,
+    paymentPlan:string(value.paymentPlan), rentFrequency:['YEARLY','MONTHLY','WEEKLY','DAILY'].includes(rentFrequency) ? rentFrequency : null,
     coordinates: typeof value.latitude === 'number' && Math.abs(value.latitude)<=90 && typeof value.longitude==='number' && Math.abs(value.longitude)<=180 ? {lat:value.latitude,lng:value.longitude} : null,
     permitNumber:string(value.trakheesiPermitNumber), floorPlanUrl:publicAsset(value.floorPlanUrl,base),
   };
 }
 const INVENTORY_PAGE_SIZE = 100; // BrokBuddy's supported maximum; independent of the UI's six-card pages.
 export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=10000}={}) {
-  async function request(path, {method='GET',body,key}={}) {
+  async function request(path, {method='GET',body,key,tracking=false,userAgent='',preview=false}={}) {
     const config = getConfig(env);
-    const endpoint = method === 'POST' ? `/api/public/broker/${encodeURIComponent(config.slug)}/inquiry` : `/api/public/broker-template/${encodeURIComponent(config.slug)}${path}`;
+    const endpoint = method === 'POST' && !tracking ? `/api/public/broker/${encodeURIComponent(config.slug)}/inquiry` : `/api/public/broker-template/${encodeURIComponent(config.slug)}${path}`;
     try {
       const response=await fetchImpl(new URL(endpoint, config.base), {
         method, cache:'no-store', redirect:'error', signal:AbortSignal.timeout(timeoutMs),
-        headers:{accept:'application/json', ...(method==='GET' ? {'X-BrokBuddy-Broker-Code':config.code} : {'content-type':'application/json','idempotency-key':key})},
+        headers:{accept:'application/json', ...(method==='GET' || tracking ? {'X-BrokBuddy-Broker-Code':config.code,...(tracking ? {'content-type':'application/json','user-agent':userAgent,'x-brokbuddy-preview':String(preview)}:{})} : {'content-type':'application/json','idempotency-key':key})},
         ...(body ? {body:JSON.stringify(body)} : {}),
       });
       if (response.status===429) throw new PublicError(429,'Too many requests. Please wait a moment before trying again.');
@@ -91,6 +97,7 @@ export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=
         if (method==='GET' && path.startsWith('/listings/') && response.status===404) throw new PublicError(404,'Property not found.');
         throw unavailable();
       }
+      if (tracking && response.status===204) return {ok:true};
       const raw=await response.text();
       if (raw.length>8_000_000 || raw.includes(config.code)) throw unavailable();
       const result=JSON.parse(raw);
@@ -153,5 +160,9 @@ export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=
     if(!record(result.inquiry) || typeof result.inquiry.id!=='string' || !result.inquiry.id.trim()) throw new PublicError(502,'Delivery could not be confirmed. Please retry your enquiry.');
     return {ok:true};
   }
-  return {site,inquire};
+  async function recordView(id, body, {userAgent='',preview=false}={}) {
+    if (!/^[A-Za-z0-9_-]{1,120}$/.test(id)) throw new PublicError(404,'Property not found.');
+    return request(`/listings/${encodeURIComponent(id)}/views`, {method:'POST',body,tracking:true,userAgent,preview});
+  }
+  return {site,inquire,recordView};
 }

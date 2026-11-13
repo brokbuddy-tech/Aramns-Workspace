@@ -5,11 +5,8 @@ import {
   ArrowLeft, Check, Search, SlidersHorizontal, List, Map as MapIcon,
   Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Compass
 } from 'lucide-react';
-import { 
-  MAP_AREAS, 
-  CURRENCY_OPTIONS,
-  formatPriceShort 
-} from '../data/mapData';
+import {CURRENCY_OPTIONS} from '../data/mapData';
+import {buildMapAreas, defaultMapArea, matchesMapArea, getMapViewport, fitMapViewport} from '../lib/map-geography.mjs';
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 
@@ -18,7 +15,7 @@ export default function PropertyMapPage({
   favorites = [],
   onToggleFavorite,
   onNavigate,
-  initialArea = 'all'
+  initialArea = null
 }) {
   const {sdk, error: sdkError} = useGoogleMaps();
   const [mapReady, setMapReady] = useState(false);
@@ -29,7 +26,8 @@ export default function PropertyMapPage({
   const currencyDropdownRef = useRef(null);
 
   // Filter States
-  const [selectedAreaId, setSelectedAreaId] = useState(initialArea);
+  const mapAreas = useMemo(() => buildMapAreas(properties), [properties]);
+  const [selectedAreaId, setSelectedAreaId] = useState(() => initialArea || defaultMapArea(mapAreas));
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [currencyCode, setCurrencyCode] = useState(properties[0]?.currency || 'AED');
   const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = useState(false);
@@ -45,7 +43,7 @@ export default function PropertyMapPage({
   const activeCurrency = CURRENCY_OPTIONS.find(c => c.code === currencyCode) || CURRENCY_OPTIONS[0];
 
   // Selected area object
-  const currentArea = MAP_AREAS.find(a => a.id === selectedAreaId) || MAP_AREAS[0];
+  const currentArea = mapAreas.find(area => area.id === selectedAreaId) || mapAreas[0];
 
   // Close currency dropdown on click outside
   useEffect(() => {
@@ -60,27 +58,7 @@ export default function PropertyMapPage({
 
   // Filter properties based on area, category, and search query
   const filteredProperties = useMemo(() => properties.filter((prop) => {
-    // Area filter
-    if (selectedAreaId !== 'all') {
-      const areaName = currentArea.name.toLowerCase();
-      const propNeighborhood = (prop.neighborhood || '').toLowerCase();
-      const propLocation = (prop.location || '').toLowerCase();
-      const propCity = (prop.cityState || '').toLowerCase();
-      
-      const matchesArea = propNeighborhood.includes(areaName) || 
-                          propLocation.includes(areaName) || 
-                          propCity.includes(areaName) ||
-                          (selectedAreaId === 'palm-jumeirah' && propLocation.includes('palm')) ||
-                          (selectedAreaId === 'saadiyat-island' && propLocation.includes('saadiyat')) ||
-                          (selectedAreaId === 'jumeirah-bay' && (propLocation.includes('jumeirah bay') || propLocation.includes('bulgari'))) ||
-                          (selectedAreaId === 'difc' && propLocation.includes('difc')) ||
-                          (selectedAreaId === 'downtown-dubai' && (propLocation.includes('downtown') || propLocation.includes('za\'abeel') || propLocation.includes('burj'))) ||
-                          (selectedAreaId === 'business-bay' && propLocation.includes('business bay')) ||
-                          (selectedAreaId === 'al-barari' && propLocation.includes('barari')) ||
-                          (selectedAreaId === 'district-one' && propLocation.includes('district one')) ||
-                          (selectedAreaId === 'bluewaters-island' && propLocation.includes('bluewaters'));
-      if (!matchesArea) return false;
-    }
+    if (!matchesMapArea(prop,currentArea)) return false;
 
     // Category filter
     if (selectedCategory !== 'All') {
@@ -98,14 +76,14 @@ export default function PropertyMapPage({
     // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const match = prop.title.toLowerCase().includes(q) ||
-                    prop.location.toLowerCase().includes(q) ||
-                    prop.neighborhood.toLowerCase().includes(q);
+      const match = [prop.title,prop.location,prop.neighborhood,prop.cityState].some(value => (value || '').toLowerCase().includes(q));
       if (!match) return false;
     }
 
     return true;
-  }), [properties, selectedAreaId, currentArea, selectedCategory, searchQuery]);
+  }), [properties, currentArea, selectedCategory, searchQuery]);
+
+  const viewport = useMemo(() => getMapViewport(filteredProperties,currentArea.viewport), [filteredProperties,currentArea]);
 
   // Active property object (for mobile floating card and highlight)
   const activeProperty = properties.find(p => p.id === activePropertyId) || null;
@@ -114,8 +92,8 @@ export default function PropertyMapPage({
   useEffect(() => {
     if (!sdk || !mapContainerRef.current) return;
     const map = new sdk.Map(mapContainerRef.current, {
-      center: {lat: currentArea.center[0], lng: currentArea.center[1]},
-      zoom: currentArea.zoom, mapId: sdk.mapId,
+      center: viewport.center,
+      zoom: viewport.zoom, maxZoom:16, mapId: sdk.mapId,
       mapTypeControl: false, streetViewControl: false,
       gestureHandling: 'greedy', zoomControl: true,
       zoomControlOptions: {position: window.google.maps.ControlPosition.LEFT_CENTER},
@@ -260,17 +238,22 @@ export default function PropertyMapPage({
     });
   }, [activePropertyId, filteredProperties, mapReady, sdk, onNavigate]);
 
-  const centerMap = area => {
-    if (!mapInstanceRef.current) return;
-    mapInstanceRef.current.panTo({lat: area.center[0], lng: area.center[1]});
-    mapInstanceRef.current.setZoom(area.zoom);
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || activePropertyId) return;
+    fitMapViewport(mapInstanceRef.current,viewport,window.innerWidth < 768);
+  }, [mapReady,viewport,sidebarOpen,mobileViewMode,activePropertyId]);
+
+  useEffect(() => {
+    if (activePropertyId && !filteredProperties.some(property => property.id === activePropertyId)) setActivePropertyId(null);
+  }, [filteredProperties,activePropertyId]);
+
+  const centerMap = () => {
+    if (mapInstanceRef.current) fitMapViewport(mapInstanceRef.current,viewport,window.innerWidth < 768);
   };
 
   const handleSelectArea = areaId => {
     setSelectedAreaId(areaId);
     setActivePropertyId(null);
-    const area = MAP_AREAS.find(a => a.id === areaId);
-    if (area) centerMap(area);
   };
 
   const handlePropertyCardClick = property => {
@@ -434,7 +417,7 @@ export default function PropertyMapPage({
             <button
               type="button"
               onClick={() => {
-                centerMap(currentArea);
+                centerMap();
                 setMobileViewMode('map');
               }}
               className="inline-flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-[12px] font-bold transition-all shadow-xs hover:scale-102 active:scale-98 cursor-pointer shrink-0"
@@ -498,8 +481,8 @@ export default function PropertyMapPage({
             <Layers size={11} />
             <span className="hidden sm:inline">Select Area:</span>
           </span>
-          {MAP_AREAS.map((area) => {
-            const isSelected = selectedAreaId === area.id;
+          {mapAreas.map((area) => {
+            const isSelected = currentArea.id === area.id;
             return (
               <button
                 key={area.id}
@@ -545,7 +528,7 @@ export default function PropertyMapPage({
               <button
                 type="button"
                 onClick={() => {
-                  centerMap(currentArea);
+                  centerMap();
                   setMobileViewMode('map');
                 }}
                 className="text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer shadow-2xs hover:scale-102 active:scale-98"
@@ -798,8 +781,8 @@ export default function PropertyMapPage({
 
               {/* Area Horizontal Filter Pills */}
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 border-t border-white/10">
-                {MAP_AREAS.map((area) => {
-                  const isSelected = selectedAreaId === area.id;
+                {mapAreas.map((area) => {
+                  const isSelected = currentArea.id === area.id;
                   return (
                     <button
                       key={area.id}
@@ -825,7 +808,7 @@ export default function PropertyMapPage({
             <button
               type="button"
               onClick={() => {
-                centerMap(currentArea);
+                centerMap();
               }}
               className="md:hidden absolute top-30 right-3 z-[10001] w-9 h-9 rounded-full bg-white/95 text-gray-900 shadow-[0_8px_20px_rgba(0,0,0,0.3)] border border-gray-200 flex items-center justify-center hover:bg-white active:scale-95 transition-all cursor-pointer"
               title="Recenter area"
@@ -927,7 +910,7 @@ export default function PropertyMapPage({
           <button
             type="button"
             onClick={() => {
-              centerMap(currentArea);
+              centerMap();
               setMobileViewMode('map');
             }}
             className="bg-black text-white px-5 py-2.5 rounded-full shadow-[0_12px_30px_rgba(0,0,0,0.5)] flex items-center gap-2 text-[12.5px] font-bold border border-white/20 active:scale-95 transition-all cursor-pointer"

@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import {PublicError} from './brokbuddy.mjs';
 import {getPublicMapsConfig} from './maps.mjs';
 const message = 'We could not send your enquiry. Please try again.';
@@ -21,7 +22,8 @@ export function validateInquiry(value) {
 }
 export function createApiHandler(client, env = process.env) {
   return async (req,res) => {
-    const send=(status,data)=>{res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin'}); res.end(JSON.stringify(data));};
+    const responseHeaders={};
+    const send=(status,data)=>{res.writeHead(status,{...responseHeaders,'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin'}); res.end(JSON.stringify(data));};
     try {
       const url=new URL(req.url,'http://localhost');
       if (url.pathname === '/api/maps-config') {
@@ -29,12 +31,17 @@ export function createApiHandler(client, env = process.env) {
         if (url.search) return send(400, {message: 'Invalid request.'});
         return send(200, getPublicMapsConfig(env));
       }
+      const cookies = String(req.headers.cookie || '').split(';').map(value=>value.trim());
+      let visitorId = cookies.find(value=>value.startsWith('bb_visitor='))?.slice('bb_visitor='.length);
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       if(req.method==='GET' && url.pathname==='/api/site') {
         const keys=[...url.searchParams.keys()];
         if(keys.some(k=>k!=='listingId') || url.searchParams.getAll('listingId').length>1) throw new PublicError(400,'Invalid request.');
         return send(200,await client.site(url.searchParams.get('listingId')));
       }
-      if(url.pathname!=='/api/inquiries') return send(404,{message:'Not found.'});
+      const visitorBootstrap=url.pathname==='/api/visitor';
+      const viewMatch=url.pathname.match(/^\/api\/property-views\/([A-Za-z0-9_-]{1,120})$/);
+      if(url.pathname!=='/api/inquiries' && !viewMatch && !visitorBootstrap) return send(404,{message:'Not found.'});
       if(req.method!=='POST') return send(405,{message:'Method not allowed.'});
       // Host is the same public host used for this request. Do not trust forwarded
       // origin/host headers; the reverse proxy must preserve Host and terminate TLS.
@@ -44,10 +51,24 @@ export function createApiHandler(client, env = process.env) {
       if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) throw new PublicError(415,'Please send a JSON enquiry.');
       if(Number(req.headers['content-length'])>16384) throw new PublicError(413,'Your message is too large.');
       const key=req.headers['idempotency-key'];
-      if(typeof key!=='string' || !/^[A-Za-z0-9_-]{16,120}$/.test(key)) throw new PublicError(400,'Please retry your enquiry.');
+      if(!viewMatch && !visitorBootstrap && (typeof key!=='string' || !/^[A-Za-z0-9_-]{16,120}$/.test(key))) throw new PublicError(400,'Please retry your enquiry.');
       const chunks=[];let size=0;
       for await(const chunk of req) {size+=chunk.length; if(size>16384) throw new PublicError(413,'Your message is too large.');chunks.push(chunk);}
       let raw; try {raw=JSON.parse(Buffer.concat(chunks).toString('utf8'));} catch {throw new PublicError(400,'Please check your enquiry.');}
+      if (visitorBootstrap) {
+        if (url.search || !raw || typeof raw!=='object' || Array.isArray(raw) || Object.keys(raw).length) throw new PublicError(400,'Invalid visitor request.');
+        if (!uuid.test(visitorId || '')) {
+          visitorId=randomUUID();
+          responseHeaders['set-cookie']=`bb_visitor=${visitorId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${env.NODE_ENV==='production' || req.socket?.encrypted ? '; Secure':''}`;
+        }
+        return send(200,{ok:true});
+      }
+      if (viewMatch) {
+        if (url.search || !raw || typeof raw!=='object' || Array.isArray(raw) || Object.keys(raw).some(key=>key!=='visibleDurationMs') || !Number.isInteger(raw.visibleDurationMs) || raw.visibleDurationMs<2000 || raw.visibleDurationMs>86400000 || !uuid.test(visitorId || '')) throw new PublicError(400,'Invalid property view.');
+        const preview=Boolean(req.headers.authorization || cookies.some(value=>value.startsWith('accessToken=') || value.startsWith('adminAccessToken=')));
+        await client.recordView(viewMatch[1],{visitorId,visibleDurationMs:raw.visibleDurationMs},{userAgent:String(req.headers['user-agent'] || '').slice(0,1024),preview});
+        return send(200,{ok:true});
+      }
       const body=validateInquiry(raw);
       return send(200,await client.inquire(body,key));
     } catch(error) {

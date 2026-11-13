@@ -26,6 +26,7 @@ import PropertyMapPage from './components/PropertyMapPage';
 import SellPropertyPage from './components/SellPropertyPage';
 import AboutUsPage from './components/AboutUsPage';
 import BackToTop from './components/BackToTop';
+import PageSkeleton from './components/PageSkeleton';
 
 import { PROPERTIES } from './data/properties';
 import { AGENTS } from './data/agents';
@@ -202,12 +203,25 @@ export default function App() {
   const isMap = currentPath === '/map' || currentPath === '/map/' || 
     currentPath.startsWith('/map') || currentPath === '/properties/map' || currentPath.startsWith('/properties/map');
 
-  const initialMapArea = isMap ? new URLSearchParams(window.location.search).get('area') || 'all' : 'all';
+  const initialMapArea = isMap ? new URLSearchParams(window.location.search).get('area') : null;
+
+  if (feed.status === 'loading') {
+    const skeletonVariant = isMap ? 'map'
+      : isPropertyDetail ? 'property'
+      : isAgentDetail ? 'profile'
+      : isAgentsDirectory ? 'agents'
+      : isBlogDetail ? 'article'
+      : isPropertiesCategory || isBlogArchive ? 'listings'
+      : isContact || isSell || isAbout ? 'content'
+      : 'home';
+
+    return <PageSkeleton variant={skeletonVariant} />;
+  }
 
   if (feed.status !== 'ready') {
     return <div className="min-h-screen bg-[#FAF8F5] pt-36 pb-20 px-6 text-center space-y-4" role="status">
-      <h2 className="font-serif text-3xl text-[#111827]">{feed.status === 'loading' ? 'Loading…' : 'Website unavailable'}</h2>
-      <p className="text-sm text-[#6B7280]">{feed.status === 'loading' ? 'Please wait while the portfolio loads.' : 'This broker website is currently unavailable. Please try again later.'}</p>
+      <h2 className="font-serif text-3xl text-[#111827]">Website unavailable</h2>
+      <p className="text-sm text-[#6B7280]">This broker website is currently unavailable. Please try again later.</p>
     </div>;
   }
 
@@ -276,6 +290,7 @@ export default function App() {
       ) : isPropertiesCategory ? (
         /* PAGE 3: DEDICATED PROPERTY CATEGORY PAGES (/properties/buy, /properties/rent) */
         <PropertyCategoryPage
+          key={activePropertyCategory}
           category={activePropertyCategory}
           properties={PROPERTIES}
           favorites={favorites}

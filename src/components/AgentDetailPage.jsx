@@ -1,17 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  ChevronRight, ChevronLeft, ArrowLeft, Phone, Mail, Calendar, ShieldCheck, 
-  Award, Globe2, Star, Quote, Share2, Check, ExternalLink 
+import {
+  Calendar,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Mail,
+  Phone,
+  Quote, Share2,
+  Star
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import PropertyCard from './PropertyCard';
 import RichText from './RichText';
 
-export default function AgentDetailPage({ 
-  agent, 
-  properties = [], 
-  favorites = [], 
-  onToggleFavorite, 
-  onSelectProperty, 
+export default function AgentDetailPage({
+  agent,
+  properties = [],
+  favorites = [],
+  onToggleFavorite,
+  onSelectProperty,
   onNavigate,
   onScheduleShowing,
   onContactAgent
@@ -91,10 +98,10 @@ export default function AgentDetailPage({
   return (
     <div className="w-full min-h-screen bg-[#FAF8F5] text-[#111827] pt-24 sm:pt-28 lg:pt-32 pb-24">
       <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-20 space-y-12 sm:space-y-16">
-        
+
         {/* 2. PROFILE HEADER (SPLIT BALANCED SECTION) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
-          
+
           {/* Left Column: Portrait & Direct Contact Actions */}
           <div className="lg:col-span-5 flex flex-col space-y-2.5">
             {/* Complete Portrait Container */}
@@ -179,7 +186,7 @@ export default function AgentDetailPage({
 
           {/* Right Column: Details, Biography, Key Metrics & Social */}
           <div className="lg:col-span-7 flex flex-col justify-between space-y-4">
-            
+
             {/* Title & Specialization Header */}
             <div className="space-y-1.5 pb-3 border-b border-black/[0.08]">
               <h1 className="text-[32px] sm:text-[38px] font-bold text-[#111827] tracking-tight font-sans leading-[1.1]">
@@ -223,7 +230,7 @@ export default function AgentDetailPage({
               <h3 className="text-[11px] uppercase tracking-luxury text-[#111827] font-semibold flex items-center justify-between">
                 <span>Executive Biography &amp; Practice</span>
               </h3>
-              <div 
+              <div
                 className="max-h-[140px] sm:max-h-[160px] overflow-y-auto pr-2 text-[13.5px] sm:text-[14px] text-[#475569] leading-[1.65] font-normal rounded-xl border border-black/[0.06] bg-white/60 p-3.5 shadow-2xs"
                 style={{ scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 transparent' }}
               >
@@ -253,45 +260,45 @@ export default function AgentDetailPage({
             <div className="space-y-1.5 pt-0.5">
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#9CA3AF] block">Official Channels:</span>
               <div className="flex flex-wrap items-center gap-2">
-                <a 
-                  href={agent.socialLinks?.facebook} 
-                  target="_blank" 
+                <a
+                  href={agent.socialLinks?.facebook}
+                  target="_blank"
                   rel="noreferrer"
                   className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
                 >
                   <span>Facebook</span>
                   <ExternalLink size={11} className="text-[#9CA3AF]" />
                 </a>
-                <a 
-                  aria-disabled="true" title="Profile link unavailable" 
-                  target="_blank" 
+                <a
+                  aria-disabled="true" title="https://www.propertyfinder.ae/en/agent/arman-alam-467643"
+                  target="_blank"
                   rel="noreferrer"
                   className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
                 >
                   <span>Property Finder</span>
                   <ExternalLink size={11} className="text-[#9CA3AF]" />
                 </a>
-                <a 
-                  aria-disabled="true" title="Profile link unavailable" 
-                  target="_blank" 
+                <a
+                  aria-disabled="true" title="https://www.bayut.com/brokers/arman-alam-2851979.html"
+                  target="_blank"
                   rel="noreferrer"
                   className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
                 >
                   <span>Bayut</span>
                   <ExternalLink size={11} className="text-[#9CA3AF]" />
                 </a>
-                <a 
-                  href={agent.socialLinks?.linkedin} 
-                  target="_blank" 
+                <a
+                  href={agent.socialLinks?.linkedin}
+                  target="_blank"
                   rel="noreferrer"
                   className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
                 >
                   <span>LinkedIn</span>
                   <ExternalLink size={11} className="text-[#9CA3AF]" />
                 </a>
-                <a 
-                  href={agent.socialLinks?.instagram} 
-                  target="_blank" 
+                <a
+                  href={agent.socialLinks?.instagram}
+                  target="_blank"
                   rel="noreferrer"
                   className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
                 >
@@ -370,7 +377,7 @@ export default function AgentDetailPage({
         {/* 4. CLIENT TESTIMONIALS (AUTOMATIC SCROLLABLE ROW) */}
         {agent.testimonials && agent.testimonials.length > 0 && (
           <div className="pt-8 space-y-6 sm:space-y-8 border-t border-black/[0.08]">
-            
+
             {/* Section Header with Controls */}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div className="space-y-2">
@@ -478,11 +485,10 @@ export default function AgentDetailPage({
                     scrollToTestimonial(dotIdx);
                   }}
                   aria-label={`Jump to review ${dotIdx + 1}`}
-                  className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                    activeTestimonialIdx === dotIdx
-                      ? 'w-7 bg-[#C5A059]'
-                      : 'w-2 bg-stone-300 hover:bg-stone-400'
-                  }`}
+                  className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${activeTestimonialIdx === dotIdx
+                    ? 'w-7 bg-[#C5A059]'
+                    : 'w-2 bg-stone-300 hover:bg-stone-400'
+                    }`}
                 />
               ))}
             </div>

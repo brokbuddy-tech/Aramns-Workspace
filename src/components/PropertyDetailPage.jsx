@@ -1,3 +1,4 @@
+import {trackVisibleProperty} from '../lib/property-popularity.mjs';
 import {useInquiry} from '../lib/inquiry';
 import InquiryError from './InquiryError';
 import React, { useState, useEffect } from 'react';
@@ -25,6 +26,7 @@ export default function PropertyDetailPage({
   onContactAdvisor,
   showToast
 }) {
+  useEffect(() => property?.status === 'ACTIVE' ? trackVisibleProperty(property.id) : undefined, [property?.id, property?.status]);
   // Gallery state
   const inquiry = useInquiry();
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);

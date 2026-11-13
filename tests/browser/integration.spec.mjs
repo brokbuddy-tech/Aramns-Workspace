@@ -8,6 +8,8 @@ test.beforeEach(async({page})=>{
   await installMapsMock(page);
   // Every submission is intercepted. Browser tests must never create real leads.
   await page.route('**/api/inquiries',route=>route.fulfill({status:503,json:{message:'Mock submission unavailable.'}}));
+  await page.route('**/api/visitor',route=>route.fulfill({json:{ok:true}}));
+  await page.route('**/api/property-views/*',route=>route.fulfill({json:{ok:true}}));
   await page.route('**/api/site*',route=>{
     const id=new URL(route.request().url()).searchParams.get('listingId');
     return route.fulfill({json:{...data,selectedProperty:id ? data.properties.find(p=>p.id===id) || null:null}});
@@ -18,16 +20,29 @@ const cards=page=>page.locator('button[aria-label="View property details"]');
 async function loaded(page,path='/') {await page.goto(path);await expect(page.getByRole('heading',{name:/Test Broker/}).first()).toBeVisible();}
 test('all inventory, existing load-more and search include the final API page',async({page})=>{
  await page.goto('/properties');await expect(cards(page)).toHaveCount(6);await page.getByRole('button',{name:/Load More Properties/}).click();await expect(cards(page)).toHaveCount(12);
- await page.getByPlaceholder(/Search all properties/).fill('Property 27');await expect(cards(page)).toHaveCount(1);await expect(page.getByRole('heading',{name:'Property 27',exact:true})).toBeVisible();
+ await page.getByLabel('Search properties',{exact:true}).fill('Property 27');await expect(cards(page)).toHaveCount(1);await expect(page.getByRole('heading',{name:'Property 27',exact:true})).toBeVisible();
  await page.getByRole('heading',{name:'Property 27',exact:true}).click();await expect(page).toHaveURL(/\/property\/listing-27$/);await expect(page.getByRole('heading',{name:'Property 27',exact:true})).toBeVisible();
 });
-test('existing location, type, price, bedrooms, amenities and sorting match real values',async({page})=>{
- await page.goto('/properties');await expect(cards(page)).toHaveCount(6);const selects=page.locator('select');
- await selects.nth(0).selectOption('Dubai Marina');await selects.nth(1).selectOption('Apartment');await selects.nth(3).selectOption('3');await selects.nth(4).selectOption('pool');
+test('the unified search bar combines location, type, rooms, amenities, price and sorting',async({page})=>{
+ await page.goto('/properties');await expect(cards(page)).toHaveCount(6);
+ const bar=page.getByRole('search',{name:'Property search'});
+ await bar.getByLabel('Search properties',{exact:true}).fill('Dubai Marina');
+ await bar.getByRole('button',{name:/^Property type/}).click();
+ await bar.getByRole('dialog').getByRole('group',{name:'Property type',exact:true}).getByRole('button',{name:'Apartment',exact:true}).click();
+ await bar.getByRole('dialog').getByRole('button',{name:'Done',exact:true}).click();
+ await bar.getByRole('button',{name:/^Beds & Baths/}).click();
+ await page.getByRole('dialog').getByRole('group',{name:'Bedrooms',exact:true}).getByRole('button',{name:'3',exact:true}).click();
+ await page.getByRole('dialog').getByRole('button',{name:'Done',exact:true}).click();
+ await bar.getByRole('button',{name:/^Amenities/}).click();
+ await page.getByRole('dialog').getByLabel('Private Pool',{exact:true}).check();
+ await page.getByRole('dialog').getByRole('button',{name:'Done',exact:true}).click();
  const titles=await page.locator('h3.line-clamp-1').allTextContents();expect(titles.length).toBeGreaterThan(0);for(const title of titles){const p=data.properties.find(p=>p.title===title);expect(p.neighborhood).toBe('Dubai Marina');expect(p.beds).toBeGreaterThanOrEqual(3);}
- await selects.nth(0).selectOption('All');await selects.nth(1).selectOption('All');await selects.nth(3).selectOption('All');await selects.nth(4).selectOption('All');await selects.nth(5).selectOption('price-desc');await expect(page.locator('h3.line-clamp-1').first()).toHaveText('Property 27');
- await selects.nth(2).selectOption('under-15m');await expect(cards(page)).toHaveCount(6);
- await page.getByRole('button',{name:'AI Search',exact:true}).click();await page.locator('textarea').fill('waterfront');await page.getByRole('button',{name:'Search Residences',exact:true}).click();await expect(cards(page)).toHaveCount(6);await expect(page.getByText('Description Search Active',{exact:true})).toBeVisible();
+ await bar.getByRole('button',{name:'Reset Filters',exact:true}).click();
+ await bar.getByLabel('Sort By',{exact:true}).selectOption('price-desc');await expect(page.locator('h3.line-clamp-1').first()).toHaveText('Property 27');
+ await bar.getByRole('button',{name:/^Price/}).click();
+ await page.getByRole('dialog').getByLabel('Maximum price (aed)').fill('15000000');
+ await page.getByRole('dialog').getByRole('button',{name:'Done',exact:true}).click();await expect(cards(page)).toHaveCount(6);
+ await bar.getByRole('button',{name:'AI Search',exact:true}).click();await page.locator('textarea').fill('waterfront');await page.getByRole('button',{name:'Search Residences',exact:true}).click();await expect(cards(page)).toHaveCount(6);await expect(page.getByText('Description Search Active',{exact:true})).toBeVisible();
 });
 test('direct detail, unique photo counts, safe rich text and rental calculator suppression',async({page})=>{
  await page.goto('/property/listing-1');await expect(page.getByRole('heading',{name:'Property 01',exact:true})).toBeVisible();await expect(page.getByText('Photo 1 of 2',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Mortgage Calculator',exact:true})).toBeVisible();await expect(page.locator('strong').filter({hasText:'waterfront'})).toBeVisible();
@@ -116,4 +131,241 @@ test('zero coordinates are valid and delayed Google authorization failures show 
   await page.evaluate(() => window.gm_authFailure());
   await expect(page.getByText('The map is temporarily unavailable.',{exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Property 01',exact:true})).toBeVisible();
+});
+
+test('Ajman maps default to local inventory and fit area filters, search and recenter', async ({page}) => {
+  const properties=[
+    {...data.properties[0],city:'Ajman',cityState:'Al Jurf 3, Ajman',neighborhood:'Al Jurf 3',coordinates:{lat:25.43,lng:55.59}},
+    {...data.properties[1],city:'Ajman',cityState:'Al Rawda, Ajman',neighborhood:'Al Rawda',coordinates:{lat:25.40,lng:55.48}},
+    {...data.properties[2],city:'Dubai',cityState:'Business Bay, Dubai',neighborhood:'Business Bay',coordinates:{lat:25.19,lng:55.26}},
+  ];
+  await page.route('**/api/site*',route=>route.fulfill({json:{...data,properties}}));
+  await page.goto('/map');
+  await expect(page.locator('.map-price-pin')).toHaveCount(2);
+  const localBounds={south:25.40,north:25.43,west:55.48,east:55.59};
+  await expect.poll(()=>page.evaluate(()=>window.__mapsCalls.bounds.at(-1)?.bounds)).toEqual(localBounds);
+  await expect(page.getByRole('button',{name:'Palm Jumeirah',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Al Jurf 3',exact:true}).click();
+  await expect(page.locator('.map-price-pin')).toHaveCount(1);
+  await expect.poll(()=>page.evaluate(()=>window.__mapsCalls.maps[0].center)).toEqual(properties[0].coordinates);
+  await page.getByRole('button',{name:'All Areas',exact:true}).click();
+  await expect(page.locator('.map-price-pin')).toHaveCount(3);
+  await expect.poll(()=>page.evaluate(()=>window.__mapsCalls.bounds.at(-1)?.bounds)).toEqual({south:25.19,north:25.43,west:55.26,east:55.59});
+  await page.getByPlaceholder(/Search/).first().fill(properties[1].title);
+  await expect(page.locator('.map-price-pin')).toHaveCount(1);
+  await expect.poll(()=>page.evaluate(()=>window.__mapsCalls.maps[0].center)).toEqual(properties[1].coordinates);
+  await page.getByPlaceholder(/Search/).first().fill('');
+  await page.getByRole('button',{name:'Ajman',exact:true}).click();
+  await page.getByTitle('Show this property on the map').first().click();
+  await expect.poll(()=>page.evaluate(()=>window.__mapsCalls.maps[0].center)).toEqual(properties[0].coordinates);
+  await page.getByTitle('Show properties in map').first().click();
+  await expect.poll(()=>page.evaluate(()=>window.__mapsCalls.maps[0].center)).toEqual({lat:(25.4+25.43)/2,lng:(55.48+55.59)/2});
+  await page.goto('/map?area=all');
+  await expect(page.locator('.map-price-pin')).toHaveCount(3);
+});
+
+test('Ajman inventory without coordinates keeps an Ajman viewport and creates no fake pins', async ({page}) => {
+  const properties=[
+    {...data.properties[0],city:'Ajman',neighborhood:'Al Jurf 3',coordinates:null},
+    {...data.properties[1],city:'Dubai',neighborhood:'Business Bay',coordinates:{lat:25.19,lng:55.26}},
+  ];
+  await page.route('**/api/site*',route=>route.fulfill({json:{...data,properties}}));
+  await page.goto('/map');
+  await expect(page.locator('[data-google-map="ready"]')).toBeVisible();
+  await expect(page.locator('.map-price-pin')).toHaveCount(0);
+  await expect.poll(()=>page.evaluate(()=>window.__mapsCalls.maps[0].center)).toEqual({lat:25.4052,lng:55.5136});
+  expect(await page.evaluate(()=>window.__mapsCalls.markers)).toHaveLength(0);
+});
+
+test('dropdown filters combine results and persist through refresh and detail navigation', async ({page}) => {
+  await page.goto('/properties');
+  const bar=page.getByRole('search',{name:'Property search'});
+  await expect(bar.getByRole('button',{name:/More filters/i})).toHaveCount(0);
+  await expect(bar.getByRole('group',{name:'Completion status',exact:true})).toBeVisible();
+  await bar.getByRole('button',{name:/^Price/}).click();
+  let panel=page.getByRole('dialog');
+  await panel.getByLabel('Minimum price (aed)').fill('500000');
+  await panel.getByLabel('Maximum price (aed)').fill('1200000');
+  await panel.getByRole('button',{name:'Done',exact:true}).click();
+  await bar.getByRole('button',{name:/^Area/}).click();
+  panel=page.getByRole('dialog');
+  await panel.getByLabel('Minimum area (sq ft)').fill('1008');
+  await panel.getByLabel('Maximum area (sq ft)').fill('1012');
+  await panel.getByRole('button',{name:'Done',exact:true}).click();
+  await bar.getByRole('group',{name:'Completion status',exact:true}).getByRole('button',{name:'Off-plan',exact:true}).click();
+  const beforeMore=new URL(page.url()).search;
+  await bar.getByRole('button',{name:/^Amenities/}).click();
+  panel=page.getByRole('dialog');
+  await panel.getByLabel('Private Pool',{exact:true}).check();
+  await panel.getByLabel('Balcony',{exact:true}).check();
+  await expect(panel.getByRole('button',{name:'Done',exact:true})).toBeEnabled();
+  expect(new URL(page.url()).search).toBe(beforeMore);
+  await panel.getByRole('button',{name:'Done',exact:true}).click();
+  await expect(cards(page)).toHaveCount(2);
+  const search=new URL(page.url()).search;
+  expect(new URLSearchParams(search).getAll('amenities')).toEqual(['Private Pool','Balcony']);
+  await page.reload();await expect(cards(page)).toHaveCount(2);
+  await page.getByRole('heading',{name:'Property 08',exact:true}).click();
+  await expect(page).toHaveURL(/\/property\/listing-8$/);
+  await page.goBack();await expect(cards(page)).toHaveCount(2);
+  expect(new URL(page.url()).search).toBe(search);
+  await bar.getByRole('button',{name:'Remove Off-plan',exact:true}).click();await expect(cards(page)).toHaveCount(5);
+  await bar.getByRole('button',{name:'Reset Filters',exact:true}).click();await expect(cards(page)).toHaveCount(6);
+  expect(new URL(page.url()).search).toBe('');
+});
+
+test('invalid price ranges cannot apply, cancelling discards edits, and studio means zero bedrooms', async ({page}) => {
+  await page.goto('/properties');
+  const bar=page.getByRole('search',{name:'Property search'});
+  const trigger=bar.getByRole('button',{name:/^Price/});
+  await trigger.click();
+  const panel=page.getByRole('dialog');
+  await panel.getByLabel('Minimum price (aed)').fill('200000');
+  await panel.getByLabel('Maximum price (aed)').fill('100000');
+  await expect(panel.getByRole('alert')).toHaveText('Maximum price must be at least the minimum price.');
+  await expect(panel.getByRole('button',{name:'Done',exact:true})).toBeDisabled();
+  await page.keyboard.press('Escape');await expect(panel).toHaveCount(0);await expect(trigger).toBeFocused();
+  await trigger.click();await expect(panel.getByLabel('Minimum price (aed)')).toHaveValue('');
+  await panel.getByLabel('Minimum price (aed)').fill('500000');
+  await panel.getByRole('button',{name:'Reset',exact:true}).click();
+  await expect(panel.getByLabel('Minimum price (aed)')).toHaveValue('');
+  await page.keyboard.press('Escape');
+  await bar.getByRole('button',{name:/^Beds & Baths/}).click();
+  await panel.getByRole('group',{name:'Bedrooms',exact:true}).getByRole('button',{name:'Studio',exact:true}).click();
+  await panel.getByRole('button',{name:'Done',exact:true}).click();
+  await expect(cards(page)).toHaveCount(5);
+  for(const title of await page.locator('h3.line-clamp-1').allTextContents()) expect(data.properties.find(property=>property.title===title).beds).toBe(0);
+  await expect(bar.getByRole('button',{name:'Remove Studio',exact:true})).toBeVisible();
+});
+
+test('mobile dropdowns belong to the search bar, fit the viewport and close with Escape', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});await page.goto('/properties');
+  const bar=page.getByRole('search',{name:'Property search'});
+  await bar.getByRole('button',{name:/^Area/}).click();
+  let panel=bar.getByRole('dialog');
+  await panel.getByLabel('Minimum area (sq ft)').fill('1025');await panel.getByLabel('Maximum area (sq ft)').fill('1027');
+  const apply=panel.getByRole('button',{name:'Done',exact:true});
+  await expect(apply).toBeInViewport();expect(await panel.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+  await apply.click();await expect(cards(page)).toHaveCount(3);
+  const trigger=bar.getByRole('button',{name:/^Amenities/});await trigger.click();
+  panel=bar.getByRole('dialog');await expect(panel).toBeVisible();
+  await page.keyboard.press('Escape');await expect(panel).toHaveCount(0);await expect(trigger).toBeFocused();
+  await expect(bar.getByLabel('Sort By',{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
+});
+
+test('commercial searches compare the selected currency and replace rooms with area', async ({page}) => {
+  const properties=[
+    {...data.properties[0],id:'office',title:'Office',category:'Office',propertyType:'Office',propertyClass:'Commercial',beds:0,price:90000,floorPlanUrl:'https://api.example.test/plan.pdf'},
+    {...data.properties[1],id:'warehouse',title:'Warehouse',category:'Warehouse',propertyType:'Warehouse',propertyClass:'Commercial',beds:0,currency:'USD',price:80000},
+    {...data.properties[2],currency:'AED'},
+  ];
+  await page.route('**/api/site*',route=>route.fulfill({json:{...data,properties}}));await page.goto('/properties');
+  const bar=page.getByRole('search',{name:'Property search'});
+  await bar.getByRole('button',{name:/^Property type/}).click();
+  let panel=bar.getByRole('dialog');await panel.getByRole('tab',{name:'Commercial',exact:true}).click();
+  await panel.getByRole('button',{name:'Done',exact:true}).click();
+  await bar.getByLabel('With floor plan',{exact:true}).check();
+  await bar.getByRole('button',{name:/^Price/}).click();panel=bar.getByRole('dialog');
+  await expect(panel.getByLabel('Minimum price',{exact:true})).toBeDisabled();
+  await panel.getByLabel('Currency',{exact:true}).selectOption('AED');
+  await panel.getByLabel('Minimum price (aed)').fill('50000');await panel.getByLabel('Maximum price (aed)').fill('100000');
+  await panel.getByRole('button',{name:'Done',exact:true}).click();await expect(cards(page)).toHaveCount(1);
+  await expect(page.getByRole('heading',{name:'Office',exact:true})).toBeVisible();
+  await expect(bar.getByRole('button',{name:/^Beds & Baths/})).toHaveCount(0);
+  await expect(bar.getByRole('button',{name:/^Area/})).toBeVisible();
+  await expect(bar.getByLabel('Sort By',{exact:true}).locator('option[value="price-asc"]')).toBeEnabled();
+});
+
+test('Latest uses creation dates and Hottest deals ranks real view counts with missing counts last',async({page})=>{
+ const properties=data.properties.map((property,index)=>({...property,createdAt:index===26 ? '2026-11-13T00:00:00.000Z' : '2026-01-01T00:00:00.000Z',viewCount:index===2 ? 1000 : index===0 ? 500 : null}));
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,properties}}));await page.goto('/properties');
+ const bar=page.getByRole('search',{name:'Property search'});
+ await bar.getByLabel('Sort By',{exact:true}).selectOption('latest');await expect(page.locator('h3.line-clamp-1').first()).toHaveText('Property 27');
+ await bar.getByLabel('Sort By',{exact:true}).selectOption('most-viewed');await expect(page.locator('h3.line-clamp-1').first()).toHaveText('Property 03');
+ await expect(page.locator('h3.line-clamp-1').nth(1)).toHaveText('Property 01');
+ await page.reload();await expect(bar.getByLabel('Sort By',{exact:true})).toHaveValue('most-viewed');await expect(page.locator('h3.line-clamp-1').first()).toHaveText('Property 03');
+});
+
+test('Hottest deals remains unavailable when the feed has no viewing data',async({page})=>{
+ await page.goto('/properties?sort=most-viewed');
+ const sort=page.getByRole('search',{name:'Property search'}).getByLabel('Sort By',{exact:true});
+ await expect(sort.locator('option[value="most-viewed"]')).toHaveJSProperty('disabled',true);await expect(sort).toHaveValue('latest');
+});
+
+test('Off-plan changes the primary fields and filters only supplied handover and payment information',async({page})=>{
+ await page.goto('/properties');
+ const bar=page.getByRole('search',{name:'Property search'});
+ await bar.getByRole('group',{name:'Completion status',exact:true}).getByRole('button',{name:'Off-plan',exact:true}).click();
+ await expect(bar.getByRole('button',{name:/^Handover by/})).toBeDisabled();
+ await expect(bar.getByRole('button',{name:/^Payment plan/})).toBeDisabled();
+ await expect(bar.getByRole('button',{name:/^Beds & Baths/})).toHaveCount(0);
+ await expect(bar.getByRole('button',{name:/^Price/})).toBeVisible();
+ const properties=data.properties.map(property=>({...property,handoverYear:['listing-4','listing-8'].includes(property.id) ? 2028 : 2030,paymentPlan:property.id==='listing-4' ? '60/40' : '50/50'}));
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,properties}}));await page.reload();
+ await bar.getByRole('button',{name:/^Handover by/}).click();
+ await bar.getByRole('dialog').getByRole('button',{name:'2028',exact:true}).click();
+ await bar.getByRole('dialog').getByRole('button',{name:'Done',exact:true}).click();await expect(cards(page)).toHaveCount(2);
+ await bar.getByRole('button',{name:/^Payment plan/}).click();
+ await bar.getByRole('dialog').getByRole('button',{name:'60/40',exact:true}).click();
+ await bar.getByRole('dialog').getByRole('button',{name:'Done',exact:true}).click();await expect(cards(page)).toHaveCount(1);
+ await expect(page.getByRole('heading',{name:'Property 04',exact:true})).toBeVisible();
+});
+
+test('Rent exposes rental periods and does not assume a period when none is supplied',async({page})=>{
+ await page.goto('/properties/rent');
+ const bar=page.getByRole('search',{name:'Property search'});
+ await expect(bar.getByRole('group',{name:'Completion status',exact:true})).toHaveCount(0);
+ await bar.getByRole('button',{name:/^Rental period/}).click();
+ await expect(bar.getByRole('dialog').getByRole('button',{name:'Monthly',exact:true})).toBeDisabled();
+ await page.keyboard.press('Escape');
+ const properties=data.properties.map(property=>({...property,rentFrequency:['listing-3','listing-6'].includes(property.id) ? 'MONTHLY' : 'YEARLY'}));
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,properties}}));await page.reload();
+ await bar.getByRole('button',{name:/^Rental period/}).click();
+ await bar.getByRole('dialog').getByRole('button',{name:'Monthly',exact:true}).click();
+ await expect(cards(page)).toHaveCount(2);
+ await expect(page.getByRole('heading',{name:'Property 03',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Property 06',exact:true})).toBeVisible();
+ await page.reload();await expect(cards(page)).toHaveCount(2);
+});
+
+test('filter menus remain clickable over cards and clipping ancestors on desktop and mobile',async({page})=>{
+ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]) {
+  await page.setViewportSize(viewport);await page.goto('/properties?photos=1');
+  const bar=page.getByRole('search',{name:'Property search'});
+  await expect(bar.getByLabel('With photos',{exact:true})).toHaveCount(0);
+  await expect.poll(()=>new URL(page.url()).searchParams.has('photos')).toBe(false);
+  await bar.evaluate(element=>{
+   element.style.zIndex='0';element.style.transform='translateZ(0)';element.style.overflow='hidden';
+   window.scrollTo(0,window.scrollY+element.getBoundingClientRect().top-80);
+   const results=document.getElementById('property-results');
+   results.style.position='relative';results.style.zIndex='2147483647';results.style.transform='translateZ(0)';
+  });
+  let overlaps=0;
+  for(const name of [/^Property type/,/^Price/,/^Area/,/^Amenities/,/^Beds & Baths/]) {
+   await bar.getByRole('button',{name}).click();
+   const panel=bar.getByRole('dialog');
+   await expect(panel.getByRole('button',{name:'Done',exact:true})).toBeInViewport();
+   const result=await panel.evaluate(element=>{
+    const panelBox=element.getBoundingClientRect();let overlaps=0;let covered=false;
+    for(const card of document.querySelectorAll('#property-results > .grid > div')) {
+     const box=card.getBoundingClientRect();
+     const left=Math.max(panelBox.left+12,box.left+12),right=Math.min(panelBox.right-12,box.right-12);
+     const top=Math.max(panelBox.top+12,box.top+12),bottom=Math.min(panelBox.bottom-12,box.bottom-12);
+     if(left>=right || top>=bottom) continue;
+     overlaps++;
+     for(const fraction of [.2,.5,.8]) {
+      const hit=document.elementFromPoint(left+(right-left)*fraction,top+(bottom-top)*fraction);
+      if(!element.contains(hit)) covered=true;
+     }
+    }
+    return {overlaps,covered};
+   });
+   overlaps+=result.overlaps;expect(result.covered).toBe(false);
+   if(name.source==='^Beds & Baths') await panel.getByRole('button',{name:'Studio',exact:true}).click();
+   await panel.getByRole('button',{name:'Done',exact:true}).click();
+  }
+  expect(overlaps).toBeGreaterThan(0);await expect(cards(page)).toHaveCount(5);
+ }
 });

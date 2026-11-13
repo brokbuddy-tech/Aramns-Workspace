@@ -6,7 +6,7 @@ export async function installMapsMock(page) {
   await page.route('https://maps.googleapis.com/maps/api/js?**', route => {
     const callback = new URL(route.request().url()).searchParams.get('callback');
     return route.fulfill({contentType: 'application/javascript', body: `
-      window.__mapsCalls = {maps: [], markers: []};
+      window.__mapsCalls = {maps: [], markers: [], bounds: []};
       class Events {
         addListener(name, callback) {
           (this.listeners ??= {})[name] = callback;
@@ -22,6 +22,11 @@ export async function installMapsMock(page) {
         }
         panTo(center) { this.options.center = center; }
         setZoom(zoom) { this.options.zoom = zoom; }
+        fitBounds(bounds, padding) {
+          this.options.bounds = {...bounds};
+          this.options.center = {lat:(bounds.south+bounds.north)/2,lng:(bounds.west+bounds.east)/2};
+          window.__mapsCalls.bounds.push({bounds:{...bounds},padding});
+        }
       }
       class AdvancedMarkerElement extends Events {
         constructor(options) {
