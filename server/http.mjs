@@ -40,8 +40,9 @@ export function createApiHandler(client, env = process.env) {
         return send(200,await client.site(url.searchParams.get('listingId')));
       }
       const visitorBootstrap=url.pathname==='/api/visitor';
+      const quickLinkClick=url.pathname==='/api/quick-link-clicks';
       const viewMatch=url.pathname.match(/^\/api\/property-views\/([A-Za-z0-9_-]{1,120})$/);
-      if(url.pathname!=='/api/inquiries' && !viewMatch && !visitorBootstrap) return send(404,{message:'Not found.'});
+      if(url.pathname!=='/api/inquiries' && !viewMatch && !visitorBootstrap && !quickLinkClick) return send(404,{message:'Not found.'});
       if(req.method!=='POST') return send(405,{message:'Method not allowed.'});
       // Host is the same public host used for this request. Do not trust forwarded
       // origin/host headers; the reverse proxy must preserve Host and terminate TLS.
@@ -51,10 +52,20 @@ export function createApiHandler(client, env = process.env) {
       if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) throw new PublicError(415,'Please send a JSON enquiry.');
       if(Number(req.headers['content-length'])>16384) throw new PublicError(413,'Your message is too large.');
       const key=req.headers['idempotency-key'];
-      if(!viewMatch && !visitorBootstrap && (typeof key!=='string' || !/^[A-Za-z0-9_-]{16,120}$/.test(key))) throw new PublicError(400,'Please retry your enquiry.');
+      if(!viewMatch && !visitorBootstrap && !quickLinkClick && (typeof key!=='string' || !/^[A-Za-z0-9_-]{16,120}$/.test(key))) throw new PublicError(400,'Please retry your enquiry.');
       const chunks=[];let size=0;
       for await(const chunk of req) {size+=chunk.length; if(size>16384) throw new PublicError(413,'Your message is too large.');chunks.push(chunk);}
       let raw; try {raw=JSON.parse(Buffer.concat(chunks).toString('utf8'));} catch {throw new PublicError(400,'Please check your enquiry.');}
+      if (quickLinkClick) {
+        if (url.search || !raw || typeof raw!=='object' || Array.isArray(raw) || Object.keys(raw).some(key=>!['areaId','eventId'].includes(key)) || typeof raw.areaId!=='string' || !raw.areaId.trim() || raw.areaId.length>512 || /[\u0000-\u001f\u007f]/u.test(raw.areaId) || typeof raw.eventId!=='string' || !uuid.test(raw.eventId)) throw new PublicError(400,'Invalid quick-link click.');
+        if (!uuid.test(visitorId || '')) {
+          visitorId=randomUUID();
+          responseHeaders['set-cookie']=`bb_visitor=${visitorId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${env.NODE_ENV==='production' || req.socket?.encrypted ? '; Secure':''}`;
+        }
+        const preview=Boolean(req.headers.authorization || cookies.some(value=>value.startsWith('accessToken=') || value.startsWith('adminAccessToken=')));
+        await client.recordQuickLinkClick({areaId:raw.areaId,eventId:raw.eventId,visitorId},{userAgent:String(req.headers['user-agent'] || '').slice(0,1024),preview});
+        return send(200,{ok:true});
+      }
       if (visitorBootstrap) {
         if (url.search || !raw || typeof raw!=='object' || Array.isArray(raw) || Object.keys(raw).length) throw new PublicError(400,'Invalid visitor request.');
         if (!uuid.test(visitorId || '')) {

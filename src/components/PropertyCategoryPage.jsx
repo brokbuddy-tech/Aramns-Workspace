@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {X, Sparkles, Filter, RotateCcw, PhoneCall, ShieldCheck} from 'lucide-react';
 import PropertyCard from './PropertyCard';
 import PropertySearchBar from './PropertySearchBar';
+import QuickLinkCards from './QuickLinkCards';
 import {emptyAdvancedFilters, readListingSearch, writeListingSearch, matchesAdvancedFilters, advancedFilterChips, propertySector, hasListingViews, compareListingActivity, matchesRoomCount} from '../lib/property-filters.mjs';
 import {plainText} from './RichText';
 import { PROPERTY_MARKET_CATEGORIES } from '../data/properties';
@@ -15,7 +16,8 @@ export default function PropertyCategoryPage({
   onSelectProperty,
   onNavigate,
   onContactClick,
-  quickLinksLimit = 6
+  quickLinksLimit = 6,
+  quickLinkClicks = []
 }) {
   const [initialSearch] = useState(() => readListingSearch(window.location.search));
   const [searchQuery, setSearchQuery] = useState(initialSearch.basic.q);
@@ -275,7 +277,7 @@ export default function PropertyCategoryPage({
     });
   }, [selectedAreaId, baseCategoryProperties, searchQuery, selectedLocation, selectedType, selectedPriceRange, selectedBeds, selectedAmenity, activeAiPrompt, sortBy, category, advancedFilters, sourceCurrencies, canComparePrice, hasViewCounts]);
 
-  const quickLinks = useMemo(() => popularAreaLinks(filteredProperties, {path:window.location.pathname, search:writeListingSearch('', {q:searchQuery,type:selectedType,price:selectedPriceRange,beds:selectedBeds,amenity:selectedAmenity,description:activeAiPrompt},advancedFilters), limit:quickLinksLimit}), [filteredProperties, quickLinksLimit, searchQuery, selectedType, selectedPriceRange, selectedBeds, selectedAmenity, activeAiPrompt, advancedFilters]);
+  const quickLinks = useMemo(() => popularAreaLinks(filteredProperties, {path:window.location.pathname, search:writeListingSearch('', {q:searchQuery,type:selectedType,price:selectedPriceRange,beds:selectedBeds,amenity:selectedAmenity,description:activeAiPrompt,sort:sortBy},advancedFilters), limit:quickLinksLimit, clicks:quickLinkClicks}), [filteredProperties, quickLinksLimit, quickLinkClicks, searchQuery, selectedType, selectedPriceRange, selectedBeds, selectedAmenity, activeAiPrompt, advancedFilters, sortBy]);
 
   const resetFilters = () => {
     setSelectedAreaId('');
@@ -363,14 +365,7 @@ export default function PropertyCategoryPage({
       {/* 2. FILTER BAR & PROPERTY LISTINGS SECTION */}
       <section id="listings" className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-12 py-12 lg:py-16 space-y-10">
         
-        <nav aria-label="Popular areas" className="rounded-xl border border-stone-200 bg-white/70 p-4 sm:p-5">
-          <h2 className="text-sm font-semibold text-stone-900 mb-3">Popular areas</h2>
-          {quickLinks.length ? <div className="flex flex-wrap gap-2">
-            {quickLinks.map(area => <a key={area.id} href={area.href} className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-2 text-xs text-stone-700 hover:border-amber-400 hover:text-stone-950 transition-colors">
-              <span>{area.name}</span><span className="text-stone-500">{area.listingCount} {area.listingCount===1 ? 'listing':'listings'} · {area.viewCount} views</span>
-            </a>)}
-          </div> : <p className="text-xs text-stone-500">No areas match the current search.</p>}
-        </nav>
+        <QuickLinkCards areas={quickLinks} />
 
         <PropertySearchBar
           category={category}

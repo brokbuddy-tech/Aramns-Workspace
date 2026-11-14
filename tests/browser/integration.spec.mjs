@@ -10,6 +10,7 @@ test.beforeEach(async({page})=>{
   await page.route('**/api/inquiries',route=>route.fulfill({status:503,json:{message:'Mock submission unavailable.'}}));
   await page.route('**/api/visitor',route=>route.fulfill({json:{ok:true}}));
   await page.route('**/api/property-views/*',route=>route.fulfill({json:{ok:true}}));
+  await page.route('**/api/quick-link-clicks',route=>route.fulfill({json:{ok:true}}));
   await page.route('**/api/site*',route=>{
     const id=new URL(route.request().url()).searchParams.get('listingId');
     return route.fulfill({json:{...data,selectedProperty:id ? data.properties.find(p=>p.id===id) || null:null}});
@@ -292,6 +293,54 @@ test('Hottest deals remains unavailable when the feed has no viewing data',async
  await page.goto('/properties?sort=most-viewed');
  const sort=page.getByRole('search',{name:'Property search'}).getByLabel('Sort By',{exact:true});
  await expect(sort.locator('option[value="most-viewed"]')).toHaveJSProperty('disabled',true);await expect(sort).toHaveValue('latest');
+});
+
+test('UAE quick-link cards count the complete inventory on the broker home and listing pages',async({page})=>{
+ for(const path of ['/','/properties']) {
+  await page.goto(path);
+  const areas=page.getByRole('navigation',{name:'Popular areas'});
+  await expect(areas.getByRole('link')).toHaveCount(2);
+  await expect(areas.getByRole('link').first()).toContainText('Palm Jumeirah');
+  await expect(areas.getByRole('link').first()).toContainText('14 listings');
+  await expect(areas.getByRole('link').nth(1)).toContainText('13 listings');
+  expect(await areas.innerText()).not.toContain('views');
+ }
+});
+
+test('shared quick-link clicks outrank listing quantity and tracking failure preserves keyboard navigation',async({page})=>{
+ const marinaId=JSON.stringify(['dubai','dubai marina']);
+ const clicks=[];
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,quickLinkClicks:[{id:marinaId,clickCount:1}]}}));
+ await page.route('**/api/quick-link-clicks',route=>{
+  clicks.push(route.request().postDataJSON());
+  return route.fulfill({status:503,json:{message:'Analytics unavailable'}});
+ });
+ await page.goto('/');
+ const first=page.getByRole('navigation',{name:'Popular areas'}).getByRole('link').first();
+ await expect(first).toContainText('Dubai Marina');await expect(first).toContainText('13 listings');
+ await first.focus();await page.keyboard.press('Enter');
+ await expect(page).toHaveURL(/\/properties\?/);
+ await expect(cards(page)).toHaveCount(6);
+ expect(new URL(page.url()).searchParams.get('areaId')).toBe(marinaId);
+ await expect.poll(()=>clicks.length).toBe(1);expect(clicks[0].areaId).toBe(marinaId);expect(clicks[0].eventId).toMatch(/^[0-9a-f-]{36}$/);
+ for(const title of await page.locator('h3.line-clamp-1').allTextContents()) expect(data.properties.find(row=>row.title===title).neighborhood).toBe('Dubai Marina');
+ await page.goto('/properties');
+ await expect(page.getByRole('navigation',{name:'Popular areas'}).getByRole('link').first()).toContainText('Dubai Marina');
+});
+
+test('quick-link cards preserve rent filters, count matching inventory, and fit mobile screens',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/properties/rent?sort=price-desc&amenities=Balcony');
+ const areas=page.getByRole('navigation',{name:'Popular areas'});
+ await expect(areas.getByRole('link').first()).toContainText('Palm Jumeirah');
+ await expect(areas.getByRole('link').first()).toContainText('5 listings');
+ await expect(areas.getByRole('link').nth(1)).toContainText('4 listings');
+ expect(await areas.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await areas.getByRole('link').nth(1).click();
+ const url=new URL(page.url());expect(url.pathname).toBe('/properties/rent');expect(url.searchParams.get('sort')).toBe('price-desc');expect(url.searchParams.getAll('amenities')).toEqual(['Balcony']);
+ await expect(cards(page)).toHaveCount(4);
+ await page.reload();await expect(cards(page)).toHaveCount(4);
 });
 
 test('Off-plan changes the primary fields and filters only supplied handover and payment information',async({page})=>{

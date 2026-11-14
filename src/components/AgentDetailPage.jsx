@@ -12,10 +12,13 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import PropertyCard from './PropertyCard';
 import RichText from './RichText';
+import QuickLinkCards from './QuickLinkCards';
+import {popularAreaLinks} from '../lib/property-popularity.mjs';
 
 export default function AgentDetailPage({
   agent,
   properties = [],
+  quickLinkClicks = [],
   favorites = [],
   onToggleFavorite,
   onSelectProperty,
@@ -310,6 +313,8 @@ export default function AgentDetailPage({
 
           </div>
         </div>
+
+        {agentProperties.length > 0 && <QuickLinkCards areas={popularAreaLinks(agentProperties, {clicks:quickLinkClicks})} />}
 
         {/* 3. AGENT'S ACTIVE LISTINGS GRID */}
         <div className="pt-8 space-y-8 border-t border-black/[0.08]">

@@ -66,7 +66,7 @@ export function mapListing(value, agent, base) {
   return {
     id: /^[A-Za-z0-9_-]{1,120}$/.test(value.id || '') ? value.id : invalid(), title: required(value.title), description: string(value.description), headline: '',
     price, currency: value.currency, priceFormatted: new Intl.NumberFormat('en-US', {style:'currency',currency:value.currency,maximumFractionDigits:2}).format(price),
-    location: string(value.mapAddress) || location, cityState: location, neighborhood: string(value.community), city:string(value.city), areaId:string(value.areaId), country:'',
+    location: string(value.mapAddress) || location, cityState: location, neighborhood: string(value.community), city:string(value.city), areaId:string(value.areaId), country:string(value.country),
     marketCategory: value.transactionType === 'RENT' ? 'rent' : 'buy', transactionType:value.transactionType,
     listingType: value.transactionType === 'RENT' ? 'FOR RENT' : 'FOR SALE',
     status: value.status, readiness: string(value.readiness), category:type, propertyType:type, propertyClass:string(value.category),
@@ -82,6 +82,16 @@ export function mapListing(value, agent, base) {
   };
 }
 const INVENTORY_PAGE_SIZE = 100; // BrokBuddy's supported maximum; independent of the UI's six-card pages.
+function mapQuickLinkClicks(value) {
+  // Optional analytics must never take the broker's inventory offline.
+  if (!Array.isArray(value)) return [];
+  const ids = new Set();
+  const valid = value.every(area => {
+    if (!record(area) || typeof area.id !== 'string' || !area.id.trim() || area.id.length > 512 || ids.has(area.id) || !Number.isSafeInteger(area.clickCount) || area.clickCount < 0) return false;
+    ids.add(area.id); return true;
+  });
+  return valid ? value.map(({id,clickCount}) => ({id,clickCount})) : [];
+}
 export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=10000}={}) {
   async function request(path, {method='GET',body,key,tracking=false,userAgent='',preview=false}={}) {
     const config = getConfig(env);
@@ -113,7 +123,7 @@ export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=
       raw[key].forEach(listing=>mapListing(listing,agent,config.base));
     }
     if (!record(raw.stats) || ['activeListings','soldListings','rentedListings'].some(k=>!Number.isInteger(raw.stats[k]) || raw.stats[k]<0)) throw unavailable();
-    return {agent};
+    return {agent,quickLinkClicks:mapQuickLinkClicks(raw.quickLinkClicks)};
   }
   async function detail(id, agent) {
     if (!/^[A-Za-z0-9_-]{1,120}$/.test(id)) throw new PublicError(404,'Property not found.');
@@ -125,7 +135,7 @@ export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=
     const started=Date.now();
     // Both endpoints authenticate the same broker code. Do independent reads
     // together, then validate ownership before exposing any listing to the UI.
-    const [{agent},firstPage]=await Promise.all([
+    const [{agent,quickLinkClicks},firstPage]=await Promise.all([
       profile(), request(`/listings?page=1&limit=${INVENTORY_PAGE_SIZE}`),
     ]);
     const properties=[]; const ids=new Set(); let total=null, totalPages=null;
@@ -148,7 +158,7 @@ export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=
     agent.region=[...new Set(properties.map(x=>x.neighborhood).filter(Boolean))].join(', ');
     let selectedProperty=null, detailNotFound=false;
     if(id) { try { selectedProperty=await detail(id,agent); } catch(error) { if(error.status!==404) throw error; await profile(); detailNotFound=true; } }
-    return {agent,properties,selectedProperty,detailNotFound};
+    return {agent,properties,selectedProperty,detailNotFound,quickLinkClicks};
   }
   async function inquire(body, key) {
     const {agent}=await profile(); // Verify code, publication and broker before every submission.
@@ -164,5 +174,8 @@ export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=
     if (!/^[A-Za-z0-9_-]{1,120}$/.test(id)) throw new PublicError(404,'Property not found.');
     return request(`/listings/${encodeURIComponent(id)}/views`, {method:'POST',body,tracking:true,userAgent,preview});
   }
-  return {site,inquire,recordView};
+  async function recordQuickLinkClick(body, {userAgent='',preview=false}={}) {
+    return request('/quick-link-clicks', {method:'POST',body,tracking:true,userAgent,preview});
+  }
+  return {site,inquire,recordView,recordQuickLinkClick};
 }

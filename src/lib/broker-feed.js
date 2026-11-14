@@ -23,7 +23,7 @@ export function useBrokerFeed(path) {
         if (controller.signal.aborted) return;
         if(!data.agent?.id || !Array.isArray(data.properties)) throw Error();
         setAgents([data.agent]);setProperties(data.properties);
-        setState({path,status:'ready',detail:data.selectedProperty});
+        setState({path,status:'ready',detail:data.selectedProperty,quickLinkClicks:data.quickLinkClicks || []});
       })
       .catch(()=>{if(!controller.signal.aborted || !controller.signal.reason?.superseded) {setAgents([]);setProperties([]);setState({path,status:'error',detail:null});}})
       .finally(()=>clearTimeout(timer));

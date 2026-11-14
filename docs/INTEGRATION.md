@@ -127,6 +127,16 @@ slug/code server integration and use the same Maps configuration/coordinate
 contract. Do not replace an agency credential with this broker template's code.
 The browser must never receive either type of BrokBuddy access code.
 
+## UAE location quick-link cards
+
+The broker homepage/profile and listing pages show cards grouped by active listing location, using the full eligible inventory before UI pagination. Listing pages retain their category and other search criteria. Location identity uses trimmed `areaId`, falling back to normalized `[city, community]`; city-only listings are supported. Explicit non-UAE countries are excluded; missing country follows the existing UAE-feed assumption. Counts on listing pages reflect the current filters.
+
+Cards initially rank by listing quantity descending. The optional `quickLinkClicks: [{id, clickCount}]` field on the existing BrokBuddy profile response supplies shared all-time card click totals. When totals exist, ranking is clicks descending, listing quantity descending, then name/ID. Property-detail views do not affect card order. Missing or malformed analytics retain listing-count ranking, and never make an otherwise valid inventory unavailable. Feed refreshes update ordering on navigation, window focus, page restore and the existing 60-second recheck.
+
+Activating a card sends a best-effort, navigation-safe `POST /api/quick-link-clicks` with `{areaId, eventId}`. The same-origin Node proxy checks Origin and input, provisions/reuses the HttpOnly visitor cookie, and adds `visitorId` and server-only broker credentials when forwarding to `POST /api/public/broker-template/{configured-slug}/quick-link-clicks`. Preview metadata and user agent are forwarded for backend suppression/rate limiting. Tracking errors never block link navigation.
+
+The companion implementation is prepared in the `brokbuddy-V1-Rebuild` backend: persistent counters/event deduplication, the optional profile field, the scoped POST route and migration `20261114120000_public_quick_link_clicks`. Deployment instructions and response examples are in that repository's `services/api/docs/quick-link-popularity.md`. **Apply the migration and deploy the backend before shared click ranking can operate.** Until deployed, cards continue to rank by listing quantity and click writes may fail harmlessly. The original implementation contract is retained in [BROKBUDDY_QUICK_LINKS_PROMPT.md](BROKBUDDY_QUICK_LINKS_PROMPT.md).
+
 ## Enquiries and retries
 
 Every active contact, broker consultation, valuation and viewing form posts JSON to `/api/inquiries`. The server checks origin, method, MIME type, a 16 KiB size limit, the exact inquiry contract, contact details and a retry key. It verifies the configured broker feed, and verifies listing ownership/status when a listing ID is present, before sending:

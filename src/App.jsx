@@ -277,6 +277,7 @@ export default function App() {
         /* PAGE 2: INDIVIDUAL AGENT DETAIL & LISTINGS (/agents/[agent-slug]) */
         <AgentDetailPage
           agent={currentAgent}
+          quickLinkClicks={feed.quickLinkClicks}
           properties={PROPERTIES}
           favorites={favorites}
           onToggleFavorite={handleToggleFavorite}
@@ -291,6 +292,7 @@ export default function App() {
         /* PAGE 3: DEDICATED PROPERTY CATEGORY PAGES (/properties/buy, /properties/rent) */
         <PropertyCategoryPage
           key={activePropertyCategory}
+          quickLinkClicks={feed.quickLinkClicks}
           category={activePropertyCategory}
           properties={PROPERTIES}
           favorites={favorites}
@@ -344,6 +346,7 @@ export default function App() {
         /* DEFAULT HOME LANDING PAGE (/) -> AGENT DESCRIPTION & PORTFOLIO PAGE */
         <AgentDetailPage
           agent={AGENTS[0]}
+          quickLinkClicks={feed.quickLinkClicks}
           properties={PROPERTIES}
           favorites={favorites}
           onToggleFavorite={handleToggleFavorite}

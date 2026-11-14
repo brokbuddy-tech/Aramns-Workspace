@@ -29,6 +29,28 @@ test('API/auth errors never become successful empty feeds or reveal raw errors',
  const unknown=await call({client:{inquire:async()=>{throw Error('private secret');}}});assert.equal(unknown.status,503);assert.ok(!JSON.stringify(unknown).includes('private secret'));
  assert.equal((await call({method:'GET',url:'/api/site?slug=other'})).status,400);
 });
+const clickBody={areaId:'["dubai","dubai marina"]',eventId:'c22e18ee-2002-4acf-aad2-ac34de3e816d'};
+test('quick-link proxy provisions a visitor, reuses its cookie, and forwards preview metadata',async()=>{
+ const events=[];const client={recordQuickLinkClick:async(...args)=>events.push(args)};
+ const args={url:'/api/quick-link-clicks',payload:clickBody,client,runtimeEnv:{NODE_ENV:'production'},headers:{'idempotency-key':undefined,'user-agent':'Browser'}};
+ const first=await call(args);assert.equal(first.status,200);assert.deepEqual(first.body,{ok:true});
+ assert.match(first.headers['set-cookie'],/HttpOnly; SameSite=Lax; Max-Age=31536000; Secure$/);
+ assert.equal(events[0][0].areaId,clickBody.areaId);assert.equal(events[0][0].eventId,clickBody.eventId);assert.ok(events[0][0].visitorId);
+ assert.equal(events[0][1].preview,false);assert.equal(events[0][1].userAgent,'Browser');
+ const cookie=first.headers['set-cookie'].split(';')[0];
+ const next=await call({...args,headers:{...args.headers,cookie,authorization:'Bearer preview'}});
+ assert.equal(next.status,200);assert.equal(next.headers['set-cookie'],undefined);assert.equal(events[1][0].visitorId,events[0][0].visitorId);assert.equal(events[1][1].preview,true);
+});
+test('quick-link proxy rejects malformed events and foreign requests before contacting BrokBuddy',async()=>{
+ let calls=0;const client={recordQuickLinkClick:async()=>{calls++;}};
+ const args={url:'/api/quick-link-clicks',payload:clickBody,client};
+ for(const payload of [{...clickBody,areaId:''},{...clickBody,areaId:'x'.repeat(513)},{...clickBody,areaId:'bad\nname'},{...clickBody,eventId:'invalid'},{...clickBody,eventId:[clickBody.eventId]},{...clickBody,visitorId:'spoofed'},null,[]]) assert.equal((await call({...args,payload})).status,400);
+ assert.equal((await call({...args,url:'/api/quick-link-clicks?slug=other'})).status,400);
+ assert.equal((await call({...args,headers:{origin:'https://foreign.example'}})).status,403);
+ assert.equal((await call({...args,method:'GET'})).status,405);assert.equal(calls,0);
+ const failed=await call({...args,client:{recordQuickLinkClick:async()=>{throw Error('private analytics failure');}}});
+ assert.equal(failed.status,503);assert.ok(!JSON.stringify(failed.body).includes('private analytics'));
+});
 
 const mapsEnv = {
   GOOGLE_MAPS_BROWSER_API_KEY: 'AIza' + 'T'.repeat(35),

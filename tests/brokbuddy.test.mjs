@@ -82,3 +82,21 @@ test('later-page failures or changing totals never expose a partially loaded inv
   await assert.rejects(create(mockApi({count:227,transform})).site(),error=>error.status===503);
  }
 });
+test('optional broker quick-link totals are allowlisted and old or malformed feeds retain inventory',async()=>{
+ const areas=[{id:'area-1',clickCount:12,privateField:'discard'}];
+ const data=await create(mockApi({transform:x=>x.activeListings ? {...x,quickLinkClicks:areas}:x})).site();
+ assert.deepEqual(data.quickLinkClicks,[{id:'area-1',clickCount:12}]);
+ for(const quickLinkClicks of [undefined,null,{},[{id:'a',clickCount:-1}],[{id:'a',clickCount:1},{id:'a',clickCount:2}],[{id:'a',clickCount:'1'}]]) {
+  const result=await create(mockApi({transform:x=>x.activeListings ? {...x,quickLinkClicks}:x})).site();
+  assert.equal(result.properties.length,27);assert.deepEqual(result.quickLinkClicks,[]);
+ }
+});
+test('quick-link click transport uses broker-scoped analytics endpoint and server credentials',async()=>{
+ const calls=[];const client=createBrokerClient({env,fetchImpl:async(input,options)=>{calls.push({url:new URL(input),options});return new Response(null,{status:204});}});
+ const body={areaId:'area-1',eventId:'c22e18ee-2002-4acf-aad2-ac34de3e816d',visitorId:'622e18ee-2002-4acf-aad2-ac34de3e816d'};
+ assert.deepEqual(await client.recordQuickLinkClick(body,{userAgent:'Browser',preview:true}),{ok:true});
+ assert.equal(calls[0].url.pathname,'/api/public/broker-template/test-broker/quick-link-clicks');
+ assert.equal(calls[0].options.headers['X-BrokBuddy-Broker-Code'],env.BROKBUDDY_BROKER_CODE);
+ assert.equal(calls[0].options.headers['x-brokbuddy-preview'],'true');assert.equal(calls[0].options.headers['user-agent'],'Browser');
+ assert.deepEqual(JSON.parse(calls[0].options.body),body);
+});
