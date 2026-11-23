@@ -12,6 +12,7 @@
 .profile-bio { background:transparent; overflow-wrap:anywhere; }
 .profile-bio > * + * { margin-top:12px; }
 .profile-metrics { grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr)); }
+.profile-header > div, .profile-metric-value { min-width:0; overflow-wrap:anywhere; }
 @media(min-width:1024px) {
   .profile-biography { display:flex; flex-direction:column; min-height:0; }
   .profile-area-links { margin-top:auto; }

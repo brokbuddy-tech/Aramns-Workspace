@@ -655,3 +655,41 @@ test('listing advisor keeps compact spacing and fits the desktop viewport',async
  expect(await card.evaluate(el=>getComputedStyle(el).maxHeight)).toBe('none');
  expect(await page.locator('.listing-representative-column').evaluate(el=>getComputedStyle(el).position)).toBe('static');
 });
+
+test.describe('mobile viewport bounds',()=>{
+ test.use({isMobile:true,hasTouch:true,deviceScaleFactor:3});
+ test('page never pans sideways and menu stays inside the device width',async({page})=>{
+  const agent={...data.agent,name:'Alexandra Montgomery-Smith International Property Advisory',email:'very.long.broker.address.for.mobile.layout@example.test',licenseId:'BRN-'+('1234567890'.repeat(10)),bio:'<p>A public biography with https://example.test/'+('long-location-details-'.repeat(20))+'</p>'};
+  const properties=data.properties.map((property,index)=>({...property,title:'Residential property with a long public title '+index,neighborhood:'Al Jerf Industrial District '+index,city:'Ajman',cityState:'Ajman',priceFormatted:'AED 999,999,999,999.00'}));
+  await page.route('**/api/feedback/config',route=>route.fulfill({status:404,json:{enabled:false}}));
+  await page.route('**/api/site*',route=>{const id=new URL(route.request().url()).searchParams.get('listingId');return route.fulfill({json:{...data,agent,properties,selectedProperty:id ? properties.find(property=>property.id===id):null}});});
+  for(const width of [320,360,393,412,600,768,820]) {
+   await page.setViewportSize({width,height:844});
+   for(const path of ['/','/properties','/property/listing-1','/contact','/write-a-review']) {
+    await page.goto(path);await expect(page.getByRole('contentinfo')).toContainText(agent.name);
+    const bounds=await page.evaluate(()=>({inner:innerWidth,document:document.documentElement.scrollWidth,body:document.body.scrollWidth,visual:visualViewport.width}));
+    expect(bounds.inner,`${width}px ${path}: layout viewport`).toBe(width);
+    expect(bounds.document,`${width}px ${path}: document overflow`).toBeLessThanOrEqual(width);
+    expect(bounds.body,`${width}px ${path}: body overflow`).toBeLessThanOrEqual(width);
+    expect(Math.abs(bounds.visual-width),`${width}px ${path}: automatic zoom-out`).toBeLessThan(1);
+    const menu=page.getByRole('button',{name:'Open menu',exact:true});await expect(menu).toBeInViewport();
+    const box=await menu.boundingBox();expect(box.x+box.width).toBeLessThanOrEqual(width-12);
+    await page.evaluate(()=>window.scrollTo({left:10000,top:scrollY,behavior:'instant'}));expect(await page.evaluate(()=>scrollX)).toBe(0);
+    if(path==='/') {
+     const portrait=await page.locator('.profile-portrait').boundingBox();expect(portrait.width).toBeGreaterThan(width*.7);
+     if(width<768) {
+      const areas=page.locator('.popular-area-scroll');
+      expect(await areas.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true);
+      await areas.evaluate(el=>{el.scrollLeft=el.scrollWidth;});expect(await areas.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);
+      expect(await page.evaluate(()=>scrollX)).toBe(0);
+     }
+    }
+   }
+  }
+  await page.setViewportSize({width:360,height:780});await page.goto('/');await expect(page.getByRole('contentinfo')).toContainText(agent.name);
+  await page.getByRole('button',{name:'Open menu',exact:true}).click();await expect(page.getByRole('button',{name:'Close menu',exact:true})).toBeInViewport();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(360);
+  await page.getByRole('button',{name:'Close menu',exact:true}).click();
+  await page.screenshot({path:'.verification/mobile-viewport-bounds.png'});
+ });
+});

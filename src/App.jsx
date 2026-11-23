@@ -234,7 +234,7 @@ export default function App() {
   if (!isKnownRoute) return <ErrorPage onNavigate={handleNavigate} />;
 
   return (
-    <div className={`w-full min-w-full bg-[#F9F9F8] text-[#1E293B] selection:bg-bronze selection:text-white flex flex-col ${
+    <div className={`app-shell w-full min-w-0 max-w-full bg-[#F9F9F8] text-[#1E293B] selection:bg-bronze selection:text-white flex flex-col ${
       isMap ? 'h-screen max-h-screen overflow-hidden' : 'min-h-screen overflow-x-clip'
     }`}>
       

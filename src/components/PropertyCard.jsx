@@ -26,7 +26,7 @@ export default function PropertyCard({
   return (
     <div
       onClick={() => onSelectProperty(property)}
-      className="group relative bg-white border border-[#E5E7EB] rounded-[14px] overflow-hidden cursor-pointer transition-all duration-300 hover:border-black/25 hover:-translate-y-1 hover:shadow-xl flex flex-col justify-between"
+      className="group relative min-w-0 bg-white border border-[#E5E7EB] rounded-[14px] overflow-hidden cursor-pointer transition-all duration-300 hover:border-black/25 hover:-translate-y-1 hover:shadow-xl flex flex-col justify-between"
     >
       <ListingShareButton property={property}/>
       {/* 1. TOP MEDIA CONTAINER (16:10 Aspect Ratio with Rounded Top) */}
@@ -85,13 +85,13 @@ export default function PropertyCard({
 
         {/* Price & Action Row */}
         <div className="border-t border-[#E5E7EB] pt-3.5 flex items-center justify-between">
-          {hasDisplayValue(property.priceFormatted) && <div className="text-[24px] font-bold text-[#0A0A0C] tracking-tight font-sans">
+          {hasDisplayValue(property.priceFormatted) && <div className="min-w-0 flex-1 break-words text-[24px] font-bold text-[#0A0A0C] tracking-tight font-sans">
             {property.priceFormatted}
           </div>}
 
           <button
             type="button"
-            className="w-10 h-10 rounded-[8px] bg-[#000000] text-white flex items-center justify-center transition-all duration-200 group-hover:bg-[#262626] group-hover:scale-105 active:scale-95 shadow-sm"
+            className="w-10 h-10 shrink-0 rounded-[8px] bg-[#000000] text-white flex items-center justify-center transition-all duration-200 group-hover:bg-[#262626] group-hover:scale-105 active:scale-95 shadow-sm"
             aria-label="View property details"
           >
             <ArrowUpRight size={18} />
