@@ -15,6 +15,6 @@ export function richTextHtml(value) {
 export function plainText(value) {
   return new DOMParser().parseFromString(richTextHtml(value), 'text/html').body.textContent || '';
 }
-export default function RichText({value}) {
-  return <div dangerouslySetInnerHTML={{__html:richTextHtml(value)}} />;
+export default function RichText({value,className}) {
+  return <div className={className} dangerouslySetInnerHTML={{__html:richTextHtml(value)}} />;
 }

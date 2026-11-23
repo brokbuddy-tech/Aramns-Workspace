@@ -50,6 +50,8 @@ export default function MortgageCalculator({
     onContactAdvisor?.(AGENTS[0]);
   };
 
+  if (typeof property?.price !== 'number' || !Number.isFinite(property.price) || !property.currency) return null;
+
   return (
     <div className="w-full bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
       

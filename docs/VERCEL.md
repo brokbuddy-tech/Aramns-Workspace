@@ -34,7 +34,7 @@ as well if preview deployments need the live broker feed:
 
 Keep these exact variable names. Never prefix broker settings with `VITE_`.
 Do not upload `.env`; `PORT` and `HOST` are unnecessary on Vercel. The function
-reads its environment at runtime. Redeploy after changing Vercel settings.
+reads its environment at runtime. Builds reject browser-prefixed template credentials and scan generated artifacts for configured credentials and hashes. The same broker credential is attached server-side to enquiry and analytics requests as well as inventory reads; coordinate backend enforcement as described in [the authentication audit](TEMPLATE_AUTH_AUDIT.md). Redeploy after changing Vercel settings.
 
 Deploy production:
 

@@ -27,6 +27,13 @@ test('all inventory, existing load-more and search include the final API page',a
 test('the unified search bar combines location, type, rooms, amenities, price and sorting',async({page})=>{
  await page.goto('/properties');await expect(cards(page)).toHaveCount(6);
  const bar=page.getByRole('search',{name:'Property search'});
+ const row=await bar.locator('.property-search-toolbar > *').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().top));
+ expect(Math.max(...row)-Math.min(...row)).toBeLessThan(1);
+ const search=await bar.getByRole('button',{name:'Search',exact:true}).boundingBox();
+ const ai=await bar.getByRole('button',{name:'AI Search',exact:true}).boundingBox();
+ expect(ai.x).toBeGreaterThan(search.x);expect(ai.y).toBe(search.y);
+ await expect(bar).not.toContainText('Find a home that fits what you have in mind.');
+ await expect(bar).not.toContainText('Search by description');
  await bar.getByLabel('Search properties',{exact:true}).fill('Dubai Marina');
  await bar.getByRole('button',{name:/^Property type/}).click();
  await bar.getByRole('dialog').getByRole('group',{name:'Property type',exact:true}).getByRole('button',{name:'Apartment',exact:true}).click();
@@ -57,17 +64,66 @@ test('missing details, valid empty inventory and failed feeds have distinct stat
 });
 test('contact failure retains input; unchanged retries reuse the key; success needs confirmation',async({page})=>{
  const submissions=[];await page.route('**/api/inquiries',async route=>{submissions.push({body:route.request().postDataJSON(),key:route.request().headers()['idempotency-key']});return route.fulfill({status:submissions.length===1 ? 502:200,json:submissions.length===1 ? {message:'Please retry safely.'}:{ok:true}});});
- await page.goto('/contact');await page.locator('[name="firstName"]').fill('Test');await page.locator('[name="lastName"]').fill('Person');await page.locator('[name="email"]').fill('test@example.test');await page.locator('[name="message"]').fill('Please contact me about an apartment.');
- await page.locator('button[type="submit"]').click();await expect(page.getByRole('alert')).toHaveText('Please retry safely.');await expect(page.locator('[name="message"]')).toHaveValue('Please contact me about an apartment.');await page.locator('button[type="submit"]').click();await expect(page.getByText(/Your inquiry regarding/)).toBeVisible();expect(submissions).toHaveLength(2);expect(submissions[0].key).toBe(submissions[1].key);expect(submissions[0].body.name).toBe('Test Person');
+ await page.goto('/contact');const form=page.getByRole('form',{name:'Contact enquiry'});
+ await form.getByLabel('Nationality').fill('Indian');await form.getByRole('radio',{name:'Customer',exact:true}).check();await form.getByRole('button',{name:'Continue'}).click();
+ await form.getByLabel('Full name').fill('Test Person');await form.getByLabel('Phone number').fill('+971500000000');await form.getByRole('radio',{name:'Buy property'}).check();await form.getByRole('button',{name:'Continue'}).click();
+ await form.getByRole('radio',{name:'Residential',exact:true}).check();await form.getByLabel('Property type').selectOption('Apartment');await form.getByLabel('Completion status').selectOption('Ready');await form.getByRole('button',{name:'Continue'}).click();
+ await form.getByRole('button',{name:'Send enquiry'}).click();await expect(page.getByRole('alert')).toHaveText('Please retry safely.');await expect(form).toContainText('Apartment');await expect(form).toContainText('Ready');await form.getByRole('button',{name:'Send enquiry'}).click();await expect(page.getByRole('heading',{name:'Enquiry received'})).toBeVisible();expect(submissions).toHaveLength(2);expect(submissions[0].key).toBe(submissions[1].key);expect(submissions[0].body.name).toBe('Test Person');expect(submissions[0].body.message).toContain('Nationality: Indian');
 });
-test('viewing enquiry preserves listing, preferred date/time and confirmed success',async({page})=>{
- let submitted;await page.route('**/api/inquiries',route=>{submitted=route.request().postDataJSON();return route.fulfill({json:{ok:true}});});
- await page.goto('/property/listing-1');await expect(page.getByRole('heading',{name:'Property 01',exact:true})).toBeVisible();await page.locator('input[type="date"]').fill('2026-12-15');await page.getByPlaceholder('e.g. Lord Alexander Sinclair').fill('Test Person');await page.getByPlaceholder('vip@domain.com').fill('test@example.test');await page.getByRole('button',{name:'Request Viewing',exact:true}).click();await expect(page.getByText('Showing Request Confirmed',{exact:true})).toBeVisible();expect(submitted.listingId).toBe('listing-1');expect(submitted.message).toContain('2026-12-15');expect(submitted.message).toContain('14:00');
+test('listing representative replaces booking and provides property sharing on desktop and mobile',async({page})=>{
+ const agent={...data.agent,whatsapp:'+971500000000',officeLicenseId:'ORN-12890'};
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,agent,selectedProperty:{...data.properties[0],neighborhood:'Ajman',city:'Ajman',location:'CGFM+676 - Al Jerf Industrial 3 - Ajman - United Arab Emirates'}}}));
+ await page.addInitScript(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.__copiedProperty=value;}}});});
+ for(const width of [1440,390,320]) {
+  await page.setViewportSize({width,height:900});await page.goto('/property/listing-1?preview=do-not-share');
+  const card=page.getByRole('complementary',{name:'Test Broker',exact:true});await expect(card).toBeVisible();
+  await expect(page.getByRole('button',{name:'Request Viewing',exact:true})).toHaveCount(0);await expect(page.getByText('Schedule Private Viewing',{exact:true})).toHaveCount(0);
+  await expect(page.locator('.property-detail-page').getByText('Al Jerf Industrial 3, Ajman',{exact:true}).filter({visible:true})).toHaveCount(2);
+  await expect(card.getByText('Exclusive Listing Representative',{exact:true})).toHaveCount(0);
+  await expect(card.getByText(/100%|verified|certified/i)).toHaveCount(0);
+  await expect(card.locator('dt').filter({hasText:/^Listings$/})).toBeVisible();
+  await expect(card.locator('dt').filter({hasText:/^Experience$/})).toBeVisible();
+  await expect(card.getByText('Languages:',{exact:true})).toHaveCount(0);
+  await expect(card.getByText('Specialization:',{exact:true})).toHaveCount(0);
+  await expect(card.locator('.listing-representative-credentials')).toContainText('ORN-12890');
+  const photo=await card.locator('.listing-representative-photo').boundingBox(),identity=await card.locator('.listing-representative-identity').boundingBox();
+  expect(photo.width).toBeLessThanOrEqual(width>=1024 ? 180:108);expect(identity.x).toBeGreaterThan(photo.x+photo.width);
+  await expect(card.getByRole('link',{name:'Call Advisor',exact:true})).toHaveAttribute('href','tel:+971500000000');
+  await expect(card.getByRole('link',{name:'WhatsApp',exact:true})).toHaveAttribute('href',/^https:\/\/wa.me\/971500000000\?/);
+  await expect(card.getByRole('link',{name:'WhatsApp',exact:true})).toHaveCSS('background-color','rgb(37, 211, 102)');
+  await expect(card.getByRole('link',{name:/Share property on/})).toHaveCount(4);
+  for(const link of await card.getByRole('link',{name:/Share property on/}).all()) {
+   const url=new URL(await link.getAttribute('href'));expect([...url.searchParams.values()].some(value=>value.includes('/property/listing-1'))).toBe(true);expect(url.search).not.toContain('preview');
+  }
+  await card.getByRole('button',{name:'Copy property link',exact:true}).click();await expect(card.getByRole('status')).toHaveText('Link copied');
+  expect(await page.evaluate(()=>window.__copiedProperty)).toBe(new URL('/property/listing-1',page.url()).href);
+  const rows=await card.locator('.listing-share-icons > *').evaluateAll(elements=>elements.map(el=>el.getBoundingClientRect().top));expect(Math.max(...rows)-Math.min(...rows)).toBeLessThan(1);
+  if(width===1440) expect(await card.evaluate(el=>el.getBoundingClientRect().height<=innerHeight-48)).toBe(true);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await card.screenshot({path:`.verification/listing-representative-${width}.png`});
+ }
 });
-test('broker consultation modal and existing footer scheduler submit real payloads',async({page})=>{
+test('broker card omits languages and specialization with compact spacing at every breakpoint',async({page})=>{
+ const specialization='Residential and commercial rental/Sales of Apartments, Villas, Shops, Warehouses, Labor Camps, Sub leasing Properties, Free Hold Properties and Lands.';
+ const agent={...data.agent,title:'Helping buyers, sellers, and investors move with confidence.',whatsapp:'+971500000000',languages:['Hindi','Urdu','English','Punjabi','Bangali'],specialization};
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,agent,selectedProperty:data.properties[0]}}));
+ for(const width of [320,402,768,1024,1600]) {
+  await page.setViewportSize({width,height:874});await page.goto('/property/listing-1');
+  const card=page.getByRole('complementary',{name:'Test Broker',exact:true});
+  await expect(card).toBeVisible();await page.evaluate(()=>document.fonts.ready);
+  await expect(card).not.toContainText('Languages:');await expect(card).not.toContainText('Specialization:');await expect(card).not.toContainText(specialization);
+  await expect(card.getByRole('button',{name:'Show more',exact:true})).toHaveCount(0);
+  await expect(card.getByRole('link',{name:'Call Advisor',exact:true})).toBeVisible();await expect(card.getByRole('link',{name:'WhatsApp',exact:true})).toBeVisible();
+  const layout=await card.evaluate(el=>({height:el.getBoundingClientRect().height,gaps:[...el.children].slice(1).map((child,index)=>child.getBoundingClientRect().top-el.children[index].getBoundingClientRect().bottom)}));
+  expect(layout.height).toBeLessThan(550);for(const gap of layout.gaps) {expect(gap).toBeGreaterThanOrEqual(20);expect(gap).toBeLessThanOrEqual(24);}
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await card.screenshot({path:`.verification/listing-compact-${width}.png`,style:'header.fixed, button[aria-label="Back to top"] { display:none !important; }'});
+ }
+});
+test('financing consultation modal and existing footer scheduler submit real payloads',async({page})=>{
  const submissions=[];await page.route('**/api/inquiries',route=>{submissions.push(route.request().postDataJSON());return route.fulfill({json:{ok:true}});});
- await loaded(page);await page.getByRole('button',{name:'Schedule Private Consultation'}).click();await page.getByPlaceholder('e.g. Katherine Pierce').fill('Test Person');await page.getByPlaceholder('k.pierce@capital.com').fill('test@example.test');await page.locator('button[type="submit"]').click();await expect(page.getByText('Direct Message Dispatched',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Done',exact:true}).click();
- await page.getByRole('button',{name:'Private Viewing',exact:true}).click();await page.getByPlaceholder('e.g. Sterling Croft').fill('Test Person');await page.getByPlaceholder('principal@familyoffice.com').fill('test@example.test');await page.getByPlaceholder('+1 (555) 019-2834').fill('+971500000000');await page.locator('button[type="submit"]').click();await expect(page.getByText('Viewing Request Received',{exact:true})).toBeVisible();expect(submissions).toHaveLength(2);expect(submissions[1].listingId).toBe('listing-1');
+ await page.goto('/property/listing-1');await page.getByRole('button',{name:'Request Financing Consultation'}).click();await page.getByPlaceholder('e.g. Katherine Pierce').fill('Test Person');await page.getByPlaceholder('k.pierce@capital.com').fill('test@example.test');await page.getByRole('dialog',{name:'Contact broker'}).locator('button[type="submit"]').click();await expect(page.getByText('Direct Message Dispatched',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Done',exact:true}).click();
+ await page.getByRole('button',{name:'Private Viewing',exact:true}).click();await page.getByPlaceholder('e.g. Sterling Croft').fill('Test Person');await page.getByPlaceholder('principal@familyoffice.com').fill('test@example.test');await page.getByPlaceholder('+1 (555) 019-2834').fill('+971500000000');await page.getByRole('dialog',{name:'Schedule a viewing'}).locator('button[type="submit"]').click();await expect(page.getByText('Viewing Request Received',{exact:true})).toBeVisible();expect(submissions).toHaveLength(2);expect(submissions[1].listingId).toBe('listing-1');
 });
 test('rich text supports HTML, escaped HTML, Markdown, plain text and strips active content',async({page})=>{
  const formats=['<p>Hello <strong>world</strong></p>','&lt;p&gt;Hello &lt;strong&gt;world&lt;/strong&gt;&lt;/p&gt;','## Heading\n\n**Bold**\n\n- Item','Plain text\nAnother line','<script>alert(1)</script><img src=x onerror=alert(2)><a href="javascript:alert(3)">Unsafe</a><p style="color:red" onclick="alert(4)">Safe</p>'];
@@ -75,13 +131,13 @@ test('rich text supports HTML, escaped HTML, Markdown, plain text and strips act
  const results=[];
  for(const value of formats) {
   bio=value;await loaded(page);
-  results.push(await page.locator('[class*="max-h-[140px]"]').innerHTML());
+  results.push(await page.locator('.profile-bio').innerHTML());
  }
  expect(results[0]).toContain('<strong>world</strong>');expect(results[1]).toContain('<strong>world</strong>');expect(results[1]).not.toContain('&lt;p&gt;');expect(results[2]).toContain('<h2>Heading</h2>');expect(results[2]).toContain('<li>Item</li>');expect(results[3]).toContain('Plain text<br>');expect(results[4]).not.toMatch(/script|onerror|onclick|javascript:|style=/i);
 });
 test('mobile navigation and map search remain usable with no horizontal overflow',async({page})=>{
  await page.setViewportSize({width:390,height:844});await loaded(page);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.getByRole('button',{name:'Open menu'}).click();await expect(page.getByRole('button',{name:'Close menu'})).toBeVisible();await page.getByRole('button',{name:'Close menu'}).click();
- await page.goto('/map');await expect(page.getByRole('region',{name:'Property map',exact:true})).toBeVisible();await expect(page.locator('.map-price-pin')).toHaveCount(27);await page.getByPlaceholder(/Search/).first().fill('Property 27');await expect(page.locator('.map-price-pin')).toHaveCount(1);
+ await page.goto('/map');await expect(page.getByRole('region',{name:'Property map',exact:true})).toBeVisible();await expect(page.locator('.map-price-pin')).toHaveCount(27);await page.getByRole('searchbox',{name:'Search map properties'}).fill('Property 27');await expect(page.locator('.map-price-pin')).toHaveCount(1);
 });
 test('valuation form sends entered property details and preserves them on errors',async({page})=>{
  const submissions=[];await page.route('**/api/inquiries',route=>{submissions.push({body:route.request().postDataJSON(),key:route.request().headers()['idempotency-key']});return route.fulfill({status:submissions.length<3 ? 502:200,json:submissions.length<3 ? {message:'Please retry safely.'}:{ok:true}});});
@@ -120,7 +176,8 @@ test('Maps failure preserves browsing and missing coordinates never produce an i
   await expect(page.getByPlaceholder(/Search/).first()).toBeVisible();
   await page.route('**/api/site*',route=>route.fulfill({json:{...data,selectedProperty:{...data.properties[0],coordinates:null}}}));
   await page.goto('/property/listing-1');
-  await expect(page.getByText('Location unavailable.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Location unavailable.',{exact:true})).toHaveCount(0);
+  await expect(page.getByRole('region',{name:'Property location',exact:true})).toContainText('Location');
   await expect(page.getByRole('button',{name:'Show map',exact:true})).toHaveCount(0);
 });
 test('zero coordinates are valid and delayed Google authorization failures show a fallback', async ({page}) => {
@@ -242,6 +299,12 @@ test('invalid price ranges cannot apply, cancelling discards edits, and studio m
 test('mobile dropdowns belong to the search bar, fit the viewport and close with Escape', async ({page}) => {
   await page.setViewportSize({width:390,height:844});await page.goto('/properties');
   const bar=page.getByRole('search',{name:'Property search'});
+  const filters=bar.getByRole('button',{name:'Filters',exact:true});
+  await expect(filters).toHaveAttribute('aria-expanded','false');
+  await expect(bar.getByRole('button',{name:/^Area/})).toBeHidden();
+  await expect(bar.getByRole('button',{name:'Search',exact:true})).toBeVisible();
+  await filters.click();
+  await expect(filters).toHaveAttribute('aria-expanded','true');
   await bar.getByRole('button',{name:/^Area/}).click();
   let panel=bar.getByRole('dialog');
   await panel.getByLabel('Minimum area (sq ft)').fill('1025');await panel.getByLabel('Maximum area (sq ft)').fill('1027');
@@ -254,6 +317,17 @@ test('mobile dropdowns belong to the search bar, fit the viewport and close with
   await expect(bar.getByLabel('Sort By',{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
+  await page.keyboard.press('Escape');
+  await expect(filters).toHaveAttribute('aria-expanded','false');
+  await expect(filters).toBeFocused();
+  await expect(bar.getByLabel('Sort By',{exact:true})).toBeHidden();
+  await filters.click();await expect(bar.getByLabel('Sort By',{exact:true})).toBeVisible();
+  await bar.getByRole('button',{name:'Search',exact:true}).click();
+  await expect(filters).toHaveAttribute('aria-expanded','false');
+  await expect(cards(page)).toHaveCount(3);
+  await page.setViewportSize({width:1440,height:1000});
+  await expect(filters).toHaveCount(0);
+  await expect(bar.getByLabel('Sort By',{exact:true})).toBeVisible();
 });
 
 test('commercial searches compare the selected currency and replace rooms with area', async ({page}) => {
@@ -304,7 +378,29 @@ test('UAE quick-link cards count the complete inventory on the broker home and l
   await expect(areas.getByRole('link').first()).toContainText('14 listings');
   await expect(areas.getByRole('link').nth(1)).toContainText('13 listings');
   expect(await areas.innerText()).not.toContain('views');
+  expect((await areas.getByRole('link').first().boundingBox()).height).toBeLessThan(40);
+  if(path === '/properties') {
+   const search=await page.getByRole('search',{name:'Property search'}).boundingBox();
+   const results=await page.locator('#property-results').boundingBox();
+   expect(Math.abs(search.x-results.x)).toBeLessThan(1);
+   expect(Math.abs(search.width-results.width)).toBeLessThan(1);
+  }
  }
+});
+
+test('legacy city-only communities produce working address-area links and hide empty navigation',async({page})=>{
+ const properties=data.properties.slice(0,3).map((property,index)=>({...property,city:'Ajman',neighborhood:'Ajman',location:index < 2 ? 'CGFM+676 - Al Jerf Industrial 3 - Ajman - United Arab Emirates' : '1 University Street'}));
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,properties}}));
+ const clicks=[];await page.route('**/api/quick-link-clicks',route=>{clicks.push(route.request().postDataJSON());return route.fulfill({status:204});});
+ await page.goto('/properties');
+ const areas=page.getByRole('navigation',{name:'Popular areas'});
+ await expect(areas.getByRole('link')).toHaveCount(1);
+ await expect(areas.getByRole('link')).toContainText('Al Jerf Industrial 3');
+ await areas.getByRole('link').click();await expect(cards(page)).toHaveCount(2);
+ await page.reload();await expect(cards(page)).toHaveCount(2);expect(clicks).toHaveLength(0);
+ await page.getByLabel('Search properties',{exact:true}).fill('no matching listing');
+ await expect(areas).toHaveCount(0);
+ await expect(page.getByText('No areas match the current search.',{exact:true})).toHaveCount(0);
 });
 
 test('shared quick-link clicks outrank listing quantity and tracking failure preserves keyboard navigation',async({page})=>{
@@ -337,6 +433,10 @@ test('quick-link cards preserve rent filters, count matching inventory, and fit 
  await expect(areas.getByRole('link').nth(1)).toContainText('4 listings');
  expect(await areas.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const search=await page.getByRole('search',{name:'Property search'}).boundingBox();
+ const results=await page.locator('#property-results').boundingBox();
+ expect(Math.abs(search.x-results.x)).toBeLessThan(1);
+ expect(Math.abs(search.width-results.width)).toBeLessThan(1);
  await areas.getByRole('link').nth(1).click();
  const url=new URL(page.url());expect(url.pathname).toBe('/properties/rent');expect(url.searchParams.get('sort')).toBe('price-desc');expect(url.searchParams.getAll('amenities')).toEqual(['Balcony']);
  await expect(cards(page)).toHaveCount(4);
@@ -383,6 +483,7 @@ test('filter menus remain clickable over cards and clipping ancestors on desktop
  for(const viewport of [{width:1440,height:1000},{width:390,height:844}]) {
   await page.setViewportSize(viewport);await page.goto('/properties?photos=1');
   const bar=page.getByRole('search',{name:'Property search'});
+  if(viewport.width<768) await bar.getByRole('button',{name:'Filters',exact:true}).click();
   await expect(bar.getByLabel('With photos',{exact:true})).toHaveCount(0);
   await expect.poll(()=>new URL(page.url()).searchParams.has('photos')).toBe(false);
   await bar.evaluate(element=>{
@@ -417,4 +518,140 @@ test('filter menus remain clickable over cards and clipping ancestors on desktop
   }
   expect(overlaps).toBeGreaterThan(0);await expect(cards(page)).toHaveCount(5);
  }
+});
+
+test('profile moves icon-only official links below the portrait and expands the biography',async({page})=>{
+ let agency='—';const bio='<p>'+('Synthetic professional biography. '.repeat(60))+'</p>';
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,agent:{...data.agent,agency,bio,socialLinks:{facebook:'https://www.facebook.com/synthetic',linkedin:'https://www.linkedin.com/in/synthetic',instagram:'https://www.instagram.com/synthetic'}}}}));
+ for(const width of [1440,390,320]) {
+  await page.setViewportSize({width,height:900});await loaded(page);
+  await expect(page.getByRole('button',{name:'Schedule Private Consultation'})).toHaveCount(0);
+  const links=page.getByRole('navigation',{name:'Official links',exact:true});await expect(links.getByRole('link')).toHaveCount(5);
+  expect(await links.innerText()).toBe('');await expect(page.locator('.profile-details .official-profile-links')).toHaveCount(0);
+  await expect(page.getByText(/^Agency:/)).toHaveCount(0);await expect(page.locator('.profile-bio')).toContainText('Synthetic professional biography.');
+  expect(await links.locator('a').evaluateAll(items=>items.every(item=>item.getBoundingClientRect().width>=44 && item.getBoundingClientRect().height>=44))).toBe(true);
+  await expect.poll(()=>links.locator('img').evaluateAll(images=>images.every(img=>img.complete && img.naturalWidth>0))).toBe(true);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  if(width===1440) expect(await page.locator('.profile-bio').evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(220);
+  await page.locator('.profile-header').screenshot({path:`.verification/profile-icons-${width}.png`});
+ }
+ agency='Synthetic Brokerage LLC';await loaded(page);await expect(page.getByText('Agency: Synthetic Brokerage LLC',{exact:true})).toBeVisible();await expect(page.getByText('Agency: Al Baqa Properties LLC',{exact:true})).toHaveCount(0);
+});
+
+test('broker metrics and contact fields disappear when the broker has not supplied them',async({page})=>{
+ const sparse={...data.agent,languages:['','—'],experience:'—',licenseId:null,careerVolume:'—',agency:null,phone:'',email:'',bio:''};
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,agent:sparse}}));
+ await loaded(page);const header=page.locator('.profile-header');
+ for(const label of ['Experience','License ID','Languages','Career Volume','Career Realization']) await expect(header.getByText(label,{exact:true})).toHaveCount(0);
+ await expect(header.getByText(/^Agency:/)).toHaveCount(0);
+ await expect(header.getByRole('link',{name:'Call Agent',exact:true})).toHaveCount(0);
+ await expect(header.getByRole('link',{name:'Email Agent',exact:true})).toHaveCount(0);
+ await expect(header.getByRole('button',{name:'Share Profile',exact:true})).toBeVisible();
+ await expect(page.getByText(/Licensed ID/)).toHaveCount(0);
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,agent:{...sparse,experience:'0 years',languages:['','English','—'],licenseId:'123',agency:'Test Agency'}}}));
+ await loaded(page);
+ for(const label of ['Experience','0+ years','Languages','English','License ID','123','Agency: Test Agency']) await expect(header.getByText(label,{exact:true}).first()).toBeVisible();
+ await expect(header.getByText('Career Volume',{exact:true})).toHaveCount(0);
+});
+
+test('missing listing metrics disappear from cards and detail sections, while zero bedrooms remain',async({page})=>{
+ const sparse={...data.properties[0],beds:null,baths:'—',sqft:null,propertyType:'',category:'',yearBuilt:null,heatingCooling:null,garage:null,hoaFees:null,lotSize:null,handover:'',paymentPlan:'',description:'',amenities:['','—'],neighborhood:'',city:'',cityState:'',location:'',country:'',coordinates:null};
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,properties:[sparse],selectedProperty:sparse}}));
+ await page.goto('/properties');await expect(cards(page)).toHaveCount(1);
+ const listings=page.locator('#property-results');
+ await expect(listings.getByText(/Beds|Baths|sqft/)).toHaveCount(0);
+ await page.goto('/property/listing-1');await expect(page.getByRole('heading',{name:sparse.title,exact:true})).toBeVisible();
+ await expect(page.getByLabel('Essential property specifications',{exact:true})).toHaveCount(0);
+ for(const label of ['Bedrooms','Bathrooms','Total Area','Built Year','Parking','Plot / Lot','Climate & HVAC','Vehicular Garaging','Service Charges / HOA','Plot Dimension']) await expect(page.getByText(label,{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'Description',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'Amenities & Highlights',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('region',{name:'Property location',exact:true})).toHaveCount(0);
+ await expect(page.getByText('ACTIVE',{exact:true})).toBeVisible();
+ const supplied={...sparse,beds:0,baths:2,sqft:1250,propertyType:'Apartment',garage:0,hoaFees:0};
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,properties:[supplied],selectedProperty:supplied}}));
+ await page.goto('/property/listing-1');await expect(page.getByRole('heading',{name:sparse.title,exact:true})).toBeVisible();
+ const specs=page.getByLabel('Essential property specifications',{exact:true});
+ for(const label of ['Bedrooms','Bathrooms','Total Area','Parking','0 Suites','2 Baths','1,250 sqft']) await expect(specs.getByText(label,{exact:true})).toBeVisible();
+ await expect(page.getByText('Service Charges / HOA',{exact:true})).toBeVisible();
+});
+
+test('mobile profile aligns contacts, location and sparse metrics without clipping',async({page})=>{
+ const agent={...data.agent,name:'Arman Alam',experience:'4 years',licenseId:'3644',languages:['Hindi','Urdu','English','Punjabi','Bangali'],careerVolume:'—',region:'Ajman, Dubai',title:'Helping buyers, sellers, and investors move with confidence.',bio:'<p>'+('Public professional biography. '.repeat(60))+'</p>',socialLinks:{facebook:'https://www.facebook.com/synthetic',linkedin:'https://www.linkedin.com/in/synthetic',instagram:'https://www.instagram.com/synthetic'}};
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,agent}}));
+ for(const width of [320,360,390,430]) {
+  await page.setViewportSize({width,height:844});await page.goto('/');await expect(page.locator('.profile-details h1')).toHaveText('Arman Alam');
+  const contacts=page.locator('.profile-contact-actions');
+  await expect(contacts.getByRole('link',{name:'Call Agent',exact:true})).toBeVisible();
+  await expect(contacts.getByRole('link',{name:'Email Agent',exact:true})).toBeVisible();
+  await expect(contacts.getByRole('button',{name:'Share Profile',exact:true})).toBeVisible();
+  const boxes=await contacts.locator(':scope > *').evaluateAll(elements=>elements.map(el=>{const r=el.getBoundingClientRect();const label=el.querySelector('span');return {top:r.top,height:r.height,width:r.width,clipped:label.scrollWidth>label.clientWidth+1,whiteSpace:getComputedStyle(label).whiteSpace};}));
+  expect(new Set(boxes.map(box=>box.top)).size).toBe(1);expect(new Set(boxes.map(box=>box.height)).size).toBe(1);
+  for(const box of boxes) {expect(box.height).toBeGreaterThanOrEqual(44);expect(box.clipped).toBe(false);expect(box.whiteSpace).toBe('normal');}
+  await expect(page.locator('.profile-region > span').last()).toHaveText('Ajman, Dubai');
+  await expect(page.locator('.profile-region > span').first()).toBeHidden();
+  await expect(page.locator('.profile-direct-links > span')).toBeHidden();
+  const contactLinks=await page.locator('.profile-direct-links > a').evaluateAll(links=>links.map(link=>link.getBoundingClientRect().left));
+  expect(new Set(contactLinks).size).toBe(1);
+  const fonts=await page.locator('.profile-metric-label').evaluateAll(labels=>labels.map(label=>getComputedStyle(label).fontSize));expect(new Set(fonts)).toEqual(new Set(['10px']));
+  const metrics=page.locator('.profile-metrics');const last=metrics.locator(':scope > div').last();
+  expect((await last.boundingBox()).width).toBeGreaterThan((await metrics.boundingBox()).width*.8);
+  expect(await page.getByRole('region',{name:'Broker biography'}).evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.locator('.profile-header').screenshot({path:`.verification/profile-aligned-${width}.png`});
+ }
+});
+
+test('footer is the document boundary and scrolling stops at the bottom',async({page})=>{
+ await page.route('**/api/feedback/config',route=>route.fulfill({json:{enabled:false}}));
+ for(const width of [360,1440]) {
+  await page.setViewportSize({width,height:780});
+  for(const path of ['/','/properties','/property/listing-1','/contact']) {
+   await page.goto(path);await expect(page.getByRole('contentinfo')).toContainText('Test Broker');
+   await page.evaluate(async()=>{
+    await document.fonts.ready;
+    document.documentElement.style.scrollBehavior='auto';
+    window.scrollTo(0,document.documentElement.scrollHeight);
+   });
+   const boundary=await page.evaluate(()=>{
+    const footer=document.querySelector('footer'),scroller=document.scrollingElement;
+    return {gap:scroller.scrollHeight-(footer.getBoundingClientRect().bottom+scrollY),maxScroll:scroller.scrollHeight-innerHeight,scroll:scrollY,behavior:getComputedStyle(document.documentElement).overscrollBehaviorY};
+   });
+   expect(boundary.gap,`${width}px ${path}: space after footer`).toBeLessThanOrEqual(1);
+   expect(Math.abs(boundary.maxScroll-boundary.scroll)).toBeLessThanOrEqual(1);
+   expect(boundary.behavior).toBe('none');
+   await page.mouse.move(width/2,700);await page.mouse.wheel(0,1500);
+   await expect.poll(()=>page.evaluate(()=>scrollY)).toBe(boundary.scroll);
+   await page.mouse.wheel(0,-500);
+   await expect.poll(()=>page.evaluate(()=>scrollY)).toBeLessThan(boundary.scroll);
+  }
+ }
+});
+
+test('listing advisor keeps compact spacing and fits the desktop viewport',async({page})=>{
+ const agent={...data.agent,whatsapp:'+971500000000',experience:'4 years',languages:['Hindi','Urdu','English','Punjabi','Bangali'],specialization:'Residential and commercial rental/Sales of Apartments, Villas, Shops, Warehouses, Labor Camps, Sub leasing Properties, Free Hold Properties and Lands.'};
+ const property={...data.properties[0],description:Array.from({length:70},()=>'<p>A detailed public property description covering location, dimensions, availability and amenities.</p>').join('')};
+ await page.route('**/api/site*',route=>route.fulfill({json:{...data,agent,selectedProperty:property}}));
+ for(const viewport of [{width:1600,height:900},{width:1280,height:680}]) {
+  await page.setViewportSize(viewport);await page.goto('/property/listing-1');
+  await expect(page.getByRole('heading',{name:property.title,exact:true})).toBeVisible();
+  const card=page.getByRole('complementary',{name:'Test Broker',exact:true});
+  await page.evaluate(async()=>{await document.fonts.ready;const column=document.querySelector('.listing-representative-column');window.scrollTo({top:scrollY+column.getBoundingClientRect().top+200,behavior:'instant'});});
+  await expect(page.locator('.site-header')).toHaveAttribute('data-visible','false');
+  await expect(page.locator('.site-header')).toHaveCSS('opacity','0');
+  await expect.poll(()=>card.evaluate(el=>Math.round(el.getBoundingClientRect().top))).toBe(24);
+  expect(await card.evaluate(el=>innerHeight-el.getBoundingClientRect().bottom)).toBeGreaterThanOrEqual(23);
+  const gaps=await card.evaluate(el=>[...el.children].slice(1).map((child,index)=>Math.round(child.getBoundingClientRect().top-el.children[index].getBoundingClientRect().bottom)));
+  for(const gap of gaps) expect(gap).toBe(20);
+  await card.evaluate(el=>{el.scrollTop=el.scrollHeight;});
+  await expect(card.getByRole('button',{name:'Copy property link',exact:true})).toBeInViewport();
+  await page.screenshot({path:`.verification/listing-advisor-filled-${viewport.width}.png`});
+  await page.mouse.move(300,300);await page.mouse.wheel(0,-80);
+  await expect(page.locator('.site-header')).toHaveAttribute('data-visible','true');
+  await expect.poll(()=>card.evaluate(el=>Math.round(el.getBoundingClientRect().top))).toBe(112);
+  expect(await card.evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight-23)).toBe(true);
+ }
+ await page.setViewportSize({width:390,height:844});await page.goto('/property/listing-1');
+ const card=page.getByRole('complementary',{name:'Test Broker',exact:true});await expect(card).toBeVisible();
+ expect(await card.evaluate(el=>getComputedStyle(el).maxHeight)).toBe('none');
+ expect(await page.locator('.listing-representative-column').evaluate(el=>getComputedStyle(el).position)).toBe('static');
 });

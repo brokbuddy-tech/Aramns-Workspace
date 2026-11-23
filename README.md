@@ -120,3 +120,7 @@ The application will be running at `http://127.0.0.1:3000/`.
 This template now requires its Node server for broker data and enquiries. See [integration setup, environment settings, deployment prerequisites and limitations](docs/INTEGRATION.md) and the [verification report](docs/VERIFICATION.md). Run `npm run dev` locally, or `npm run build` followed by `npm start` for production. Real environment files must stay server-only and out of source uploads.
 
 For Vercel, follow [the deployment guide](docs/VERCEL.md). The Vite frontend and server API deploy together using the included Vercel function and routing configuration.
+
+Native client reviews and video testimonials use the private BrokBuddy feedback integration. See [NATIVE_FEEDBACK.md](NATIVE_FEEDBACK.md) for scope settings, the required backend migration, proxy behavior, synthetic tests and local preview instructions.
+
+Shared mobile layout rules live in `src/mobile.css`. The mobile regression checks cover the main routes at 320px, 390px and 768px, long broker names, map/list search, and enquiry dialogs on short landscape screens. Run `node node_modules/@playwright/test/cli.js test tests/browser/mobile-layout.spec.mjs`; synthetic layout reports and screenshots are saved under `.verification/mobile/`.

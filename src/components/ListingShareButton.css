@@ -1,0 +1,25 @@
+.listing-card-share { position:absolute; top:14px; left:14px; z-index:20; }
+.listing-card-share-trigger { display:flex; align-items:center; justify-content:center; width:44px; height:44px; color:#111827; background:rgb(255 255 255 / 95%); border:1px solid rgb(0 0 0 / 8%); border-radius:50%; box-shadow:0 2px 8px rgb(0 0 0 / 12%); cursor:pointer; }
+.listing-card-share-trigger:hover { background:#fff; }
+.listing-share-dialog { position:fixed; inset:0; margin:auto; padding:0; width:calc(100% - 32px); max-width:400px; max-height:90dvh; overflow:auto; color:#111827; background:#fff; border:1px solid #E5E7EB; border-radius:20px; box-shadow:0 20px 60px rgb(0 0 0 / 20%); cursor:default; font-family:"Plus Jakarta Sans",Inter,system-ui,sans-serif; }
+.listing-share-dialog::backdrop { background:rgb(0 0 0 / 50%); }
+body:has(.listing-share-dialog[open]) { overflow:hidden; }
+.listing-share-dialog-content { padding:24px; }
+.listing-share-dialog-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.listing-share-dialog-heading h2 { margin:0; font:600 20px/1.4 "Plus Jakarta Sans",Inter,system-ui,sans-serif; letter-spacing:-.03em; }
+.listing-share-close { display:flex; align-items:center; justify-content:center; width:44px; height:44px; flex-shrink:0; color:#111827; background:#F9F9F8; border:1px solid #E5E7EB; border-radius:50%; cursor:pointer; }
+.listing-share-title { margin:12px 0 20px; font-size:14px; line-height:1.6; color:#6B7280; overflow-wrap:anywhere; }
+.listing-share-platforms { display:flex; justify-content:center; gap:16px; }
+.listing-share-platforms a { display:flex; align-items:center; justify-content:center; width:48px; height:48px; border:1px solid #E5E7EB; border-radius:50%; }
+.listing-share-platforms a:hover { background:#FAF8F5; }
+.listing-share-platforms :is(svg,img) { width:23px; height:23px; }
+.listing-card-share-whatsapp { color:#25D366; }
+.listing-card-share-facebook { color:#1877F2; }
+.listing-card-share-x { color:#111827; }
+.listing-card-share-linkedin { color:#0A66C2; }
+.listing-share-copy { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:48px; margin-top:24px; padding:12px 16px; font-size:14px; font-weight:600; color:#fff; background:#000; border:0; border-radius:10px; cursor:pointer; }
+.listing-share-copy:hover { background:#262626; }
+.listing-share-manual { display:block; margin-top:16px; font-size:14px; line-height:1.5; }
+.listing-share-manual input { display:block; width:100%; min-width:0; margin-top:8px; padding:12px; border:1px solid #D1D5DB; border-radius:8px; font-size:16px; }
+.listing-card-share :is(a,button,input):focus-visible { outline:2px solid #9E7B36; outline-offset:4px; }
+@media(max-width:360px) { .listing-share-platforms { gap:12px; } }

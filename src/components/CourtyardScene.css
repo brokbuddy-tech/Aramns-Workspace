@@ -1,0 +1,23 @@
+.courtyard-scene { display: block; width: 100%; height: auto; overflow: visible; }
+.courtyard-sun { animation: courtyard-sunrise 8s ease-in-out infinite alternate; transform-origin: 316px 208px; }
+.courtyard-dune--far { animation: courtyard-dune-far 10s ease-in-out infinite alternate; }
+.courtyard-dune--middle { animation: courtyard-dune-middle 8s ease-in-out infinite alternate; }
+.courtyard-dune--near { animation: courtyard-dune-near 7s ease-in-out infinite alternate; }
+.courtyard-palm { transform-origin: 129px 489px; animation: courtyard-breeze 5s ease-in-out infinite alternate; }
+.courtyard-birds { animation: courtyard-flight 9s ease-in-out infinite alternate; }
+.courtyard-dust { opacity: .3; animation: courtyard-dust 6s ease-in-out infinite; }
+.courtyard-tiles { animation: courtyard-light 6s ease-in-out infinite alternate; }
+.courtyard-scene--drawing .courtyard-arch-trace { stroke: #92713f; stroke-width: 1.5; stroke-dasharray: 1; animation: courtyard-draw 5s ease-in-out infinite; }
+@keyframes courtyard-sunrise { from { transform: translateY(24px); } to { transform: translateY(-9px); } }
+@keyframes courtyard-dune-far { from { transform: translate(-10px,3px); } to { transform: translate(9px,-3px); } }
+@keyframes courtyard-dune-middle { from { transform: translate(10px,4px); } to { transform: translate(-10px,-3px); } }
+@keyframes courtyard-dune-near { from { transform: translate(-6px,0); } to { transform: translate(8px,4px); } }
+@keyframes courtyard-breeze { from { transform: rotate(-1.5deg); } to { transform: rotate(1.7deg); } }
+@keyframes courtyard-flight { from { transform: translate(-9px,4px); } to { transform: translate(14px,-7px); } }
+@keyframes courtyard-dust { 0%,100% { opacity: 0; transform: translate(-3px,12px); } 30%,70% { opacity: .35; } 90% { opacity: 0; transform: translate(10px,-18px); } }
+@keyframes courtyard-light { from { opacity: .12; } to { opacity: .3; } }
+@keyframes courtyard-draw { 0% { stroke-dashoffset: 1; opacity: .2; } 45%,75% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: .2; } }
+@media (prefers-reduced-motion: reduce) {
+  .courtyard-scene * { animation: none !important; }
+  .courtyard-scene--drawing .courtyard-arch-trace { stroke-dashoffset: 0; opacity: 1; }
+}

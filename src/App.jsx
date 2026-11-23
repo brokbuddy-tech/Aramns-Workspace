@@ -7,7 +7,8 @@ import Neighborhoods from './components/Neighborhoods';
 import Agents from './components/Agents';
 import AgentsDirectoryPage from './components/AgentsDirectoryPage';
 import AgentDetailPage from './components/AgentDetailPage';
-import Testimonials from './components/Testimonials';
+import NativeFeedback from './components/NativeFeedback';
+import WriteReviewPage from './components/WriteReviewPage';
 import BlogSection from './components/BlogSection';
 import BlogArchivePage from './components/BlogArchivePage';
 import BlogDetailPage from './components/BlogDetailPage';
@@ -26,11 +27,13 @@ import PropertyMapPage from './components/PropertyMapPage';
 import SellPropertyPage from './components/SellPropertyPage';
 import AboutUsPage from './components/AboutUsPage';
 import BackToTop from './components/BackToTop';
-import PageSkeleton from './components/PageSkeleton';
+import PageLoader from './components/PageLoader';
+import ErrorPage from './components/ErrorPage';
 
 import { PROPERTIES } from './data/properties';
 import { AGENTS } from './data/agents';
 import {useBrokerFeed} from './lib/broker-feed';
+import {useFeedbackAvailability} from './lib/feedback';
 
 export default function App() {
   // Routing State
@@ -39,13 +42,7 @@ export default function App() {
   );
 
   const feed = useBrokerFeed(currentPath);
-
-  useEffect(() => {
-    const available = feed.status === 'ready';
-    document.title = available ? `${AGENTS[0]?.name} | Property Portfolio` : 'Property Portfolio';
-    document.querySelector('meta[name="robots"]')?.setAttribute('content', available ? 'index, follow' : 'noindex, nofollow');
-    document.querySelector('meta[name="description"]')?.setAttribute('content', available ? `Public property portfolio of ${AGENTS[0]?.name}.` : 'The property portfolio is currently unavailable.');
-  }, [feed.status, currentPath, AGENTS[0]?.name]);
+  const feedback = useFeedbackAvailability(feed.status === 'ready');
 
   // Sync with browser back/forward buttons
   useEffect(() => {
@@ -199,31 +196,42 @@ export default function App() {
     currentPath === '/about-us' || currentPath === '/about-us/' ||
     currentPath.startsWith('/about');
 
+  const isWriteReview = currentPath === '/write-a-review' || currentPath === '/write-a-review/';
+
   // Map routing (/map or /properties/map)
   const isMap = currentPath === '/map' || currentPath === '/map/' || 
     currentPath.startsWith('/map') || currentPath === '/properties/map' || currentPath.startsWith('/properties/map');
 
   const initialMapArea = isMap ? new URLSearchParams(window.location.search).get('area') : null;
+  const isKnownRoute = currentPath === '/' || isMap || isPropertyDetail || isAgentsDirectory || isAgentDetail || isPropertiesCategory || isBlogArchive || isBlogDetail || isContact || isSell || isAbout || isWriteReview;
+  const isMissingPage = !isKnownRoute || (isPropertyDetail && !currentProperty) || (isAgentDetail && !currentAgent);
+
+  useEffect(() => {
+    const ready = feed.status === 'ready';
+    const available = ready && !isMissingPage;
+    document.title = ready && isMissingPage ? 'Page not found | Property Portfolio' : available ? `${isWriteReview ? 'Write a review | ' : ''}${AGENTS[0]?.name} | Property Portfolio` : 'Property Portfolio';
+    document.querySelector('meta[name="robots"]')?.setAttribute('content', available ? 'index, follow' : 'noindex, nofollow');
+    document.querySelector('meta[name="description"]')?.setAttribute('content', available ? `Public property portfolio of ${AGENTS[0]?.name}.` : ready && isMissingPage ? 'This page could not be found. Return to the property portfolio.' : 'The property portfolio is currently unavailable.');
+  }, [feed.status, currentPath, isMissingPage, isWriteReview, AGENTS[0]?.name]);
 
   if (feed.status === 'loading') {
-    const skeletonVariant = isMap ? 'map'
+    const loadingVariant = isMap ? 'map'
       : isPropertyDetail ? 'property'
       : isAgentDetail ? 'profile'
       : isAgentsDirectory ? 'agents'
       : isBlogDetail ? 'article'
       : isPropertiesCategory || isBlogArchive ? 'listings'
-      : isContact || isSell || isAbout ? 'content'
+      : isContact || isSell || isAbout || isWriteReview ? 'content'
       : 'home';
 
-    return <PageSkeleton variant={skeletonVariant} />;
+    return <PageLoader variant={loadingVariant} agent={AGENTS[0]} />;
   }
 
   if (feed.status !== 'ready') {
-    return <div className="min-h-screen bg-[#FAF8F5] pt-36 pb-20 px-6 text-center space-y-4" role="status">
-      <h2 className="font-serif text-3xl text-[#111827]">Website unavailable</h2>
-      <p className="text-sm text-[#6B7280]">This broker website is currently unavailable. Please try again later.</p>
-    </div>;
+    return <ErrorPage variant="unavailable" />;
   }
+
+  if (!isKnownRoute) return <ErrorPage onNavigate={handleNavigate} />;
 
   return (
     <div className={`w-full min-w-full bg-[#F9F9F8] text-[#1E293B] selection:bg-bronze selection:text-white flex flex-col ${
@@ -252,6 +260,8 @@ export default function App() {
           onNavigate={handleNavigate}
           initialArea={initialMapArea}
         />
+      ) : isWriteReview ? (
+        <WriteReviewPage feedback={feedback} onNavigate={handleNavigate}/>
       ) : isPropertyDetail ? (
         /* DEDICATED PROPERTY DETAIL PAGE (/property/[id]) */
         <PropertyDetailPage
@@ -359,9 +369,12 @@ export default function App() {
         />
       )}
 
+      {currentPath==='/' && <NativeFeedback config={feedback.config} onRefresh={feedback.refresh}/>}
+
       {/* SECTION 11: Footer (Persistent across all routes except full-screen map) */}
       {!isMap && (
         <Footer
+          reviewAvailable={feedback.available}
           onScheduleClick={() => setIsScheduleModalOpen(true)}
           onNavigate={handleNavigate}
           onContactClick={() => {

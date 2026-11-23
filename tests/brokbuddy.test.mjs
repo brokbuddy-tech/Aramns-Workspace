@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import {createBrokerClient,getConfig,mapListing,mapAgent,publicAsset} from '../server/brokbuddy.mjs';
 import {env,agent,listing,mockApi} from './fixtures.mjs';
 const create=mock=>createBrokerClient({env,fetchImpl:mock.fetchImpl});
+test('loading branding uses the authenticated profile without waiting for inventory pagination',async()=>{
+ const mock=mockApi({count:227});
+ assert.deepEqual(await create(mock).branding(),{name:'Test Broker',tagline:'Property Consultant'});
+ assert.equal(mock.calls.length,1);
+ assert.equal(mock.calls[0].options.headers['X-BrokBuddy-Broker-Code'],env.BROKBUDDY_BROKER_CODE);
+ assert.equal(mock.calls[0].options.cache,'no-store');
+ for(const status of [401,403,404,500]) await assert.rejects(create(mockApi({fail:()=>Response.json({error:'private'},{status})})).branding(),error=>error.status===503);
+ await assert.rejects(create(mockApi({transform:value=>({...value,unexpected:env.BROKBUDDY_BROKER_CODE})})).branding(),error=>error.status===503);
+ await assert.rejects(create(mockApi({transform:value=>({...value,agent:{...value.agent,slug:'sibling'}})})).branding(),error=>error.status===503);
+});
 test('loads complete pagination rather than the two-listing profile preview',async()=>{
  const mock=mockApi({count:227});const data=await create(mock).site();assert.equal(data.properties.length,227);assert.equal(data.agent.name,'Test Broker');assert.equal(data.agent.licenseId,'BRN-123');assert.equal(data.agent.careerVolume,'—');assert.deepEqual(data.agent.testimonials,[]);
  assert.deepEqual(mock.calls.filter(x=>x.url.pathname.endsWith('/listings')).map(x=>x.url.search),'?page=1&limit=100 ?page=2&limit=100 ?page=3&limit=100'.split(' '));
@@ -33,11 +43,11 @@ test('direct detail lookup uses the scoped endpoint and verifies the requested I
  const notFound=await create(mockApi()).site('missing');assert.equal(notFound.selectedProperty,null);assert.equal(notFound.detailNotFound,true);
  await assert.rejects(create(mockApi({transform:(x,url)=>url.pathname.endsWith('/listings/listing-27') ? {...x,id:'listing-1'}:x})).site('listing-27'),e=>e.status===503);
 });
-test('inquiry verifies publication and listing context, sends no feed code, and preserves retries',async()=>{
+test('inquiry verifies publication and listing context, authenticates server-side, and preserves retries',async()=>{
  const mock=mockApi();const client=create(mock),body={name:'Test Person',email:'test@example.test',message:'Please arrange a property viewing.',listingId:'listing-2'};
  await client.inquire(body,'test-idempotency-key');await client.inquire(body,'test-idempotency-key');
  const posts=mock.calls.filter(c=>c.options.method==='POST');assert.equal(posts.length,2);
- for(const post of posts){assert.equal(post.url.pathname,'/api/public/broker/test-broker/inquiry');assert.equal(post.options.headers['idempotency-key'],'test-idempotency-key');assert.equal(post.options.headers['X-BrokBuddy-Broker-Code'],undefined);assert.equal(JSON.parse(post.options.body).listingId,'listing-2');}
+ for(const post of posts){assert.equal(post.url.pathname,'/api/public/broker/test-broker/inquiry');assert.equal(post.options.headers['idempotency-key'],'test-idempotency-key');assert.equal(post.options.headers['X-BrokBuddy-Broker-Code'],env.BROKBUDDY_BROKER_CODE);assert.equal(JSON.parse(post.options.body).listingId,'listing-2');assert.ok(!post.url.href.includes(env.BROKBUDDY_BROKER_CODE));assert.ok(!post.options.body.includes(env.BROKBUDDY_BROKER_CODE));}
  const denied=mockApi({fail:()=>Response.json({},{status:404})});await assert.rejects(create(denied).inquire(body,'key'),e=>e.status===503);assert.equal(denied.calls.some(x=>x.options.method==='POST'),false);
  await assert.rejects(create(mockApi({confirmation:{message:'ok'}})).inquire(body,'key'),e=>e.status===502);
  await assert.rejects(create(mockApi()).inquire({...body,listingId:'missing'},'key'),e=>e.status===404);
@@ -99,4 +109,10 @@ test('quick-link click transport uses broker-scoped analytics endpoint and serve
  assert.equal(calls[0].options.headers['X-BrokBuddy-Broker-Code'],env.BROKBUDDY_BROKER_CODE);
  assert.equal(calls[0].options.headers['x-brokbuddy-preview'],'true');assert.equal(calls[0].options.headers['user-agent'],'Browser');
  assert.deepEqual(JSON.parse(calls[0].options.body),body);
+});
+
+test('broker agency names are mapped only from supplied public agency data',()=>{
+ for(const [fields,name] of [[{agency:{name:'Public Agency LLC',email:'private@example.test'}},'Public Agency LLC'],[{agency:'Public Agency LLC'},'Public Agency LLC'],[{agencyName:'Public Agency LLC'},'Public Agency LLC'],[{},'—']]) {
+  const result=mapAgent({...agent(),...fields},env.BROKBUDDY_BROKER_PROFILE_SLUG,env.BROKBUDDY_API_BASE_URL);assert.equal(result.agency,name);assert.ok(!JSON.stringify(result).includes('private@example.test'));
+ }
 });

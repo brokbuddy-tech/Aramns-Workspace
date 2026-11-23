@@ -1,6 +1,27 @@
 export const normalizeArea = value => String(value || '').trim().replace(/\s+/gu, ' ').toLowerCase();
 export const listingAreaId = property => String(property.areaId || '').trim() || JSON.stringify([normalizeArea(property.city), normalizeArea(property.neighborhood)]);
 
+export function listingNeighborhood(property) {
+  const city = normalizeArea(property.city);
+  const community = String(property.neighborhood || '').trim();
+  if (normalizeArea(community) && normalizeArea(community) !== city) return community;
+  // Legacy feeds sometimes repeat the city as the community. Use a named
+  // district from a structured address, never a street or a plus code.
+  const parts = String(property.location || '').split(/\s+[-–—]\s+|,/u)
+    .map(part => part.trim().replace(/^[A-Z0-9]{2,8}\+[A-Z0-9]{2,4}\s*/u, ''));
+  const cityIndex = parts.findIndex(part => normalizeArea(part) === city);
+  if (!city || cityIndex < 1) return '';
+  return parts.slice(0, cityIndex).reverse().find(part => part
+    && !/\b(street|road|avenue|highway|st|rd)\b|\+/iu.test(part)
+    && !/^\d+(?:\s|$)/u.test(part)) || '';
+}
+
+// Address-derived districts have no backend analytics identity yet. Keep their
+// filter keys separate from the upstream city-level identity and click totals.
+export const quickLinkAreaId = property => normalizeArea(listingNeighborhood(property)) === normalizeArea(property.neighborhood)
+  ? listingAreaId(property)
+  : `address:${JSON.stringify([normalizeArea(property.city), normalizeArea(listingNeighborhood(property))])}`;
+
 // Called with the complete filtered inventory, before card pagination. Each link
 // preserves the results route/category and every non-location search criterion.
 export function popularAreaLinks(properties, {path='/properties', search='', limit=6, clicks=[]}={}) {
@@ -10,11 +31,13 @@ export function popularAreaLinks(properties, {path='/properties', search='', lim
     const country = normalizeArea(property.country);
     // Existing UAE feeds may omit country. Honour explicit country data when supplied.
     if (property.status !== 'ACTIVE' || (country && !['ae','are','uae','united arab emirates'].includes(country))) continue;
-    const label = normalizeArea(property.neighborhood) ? property.neighborhood : property.city;
-    if (!normalizeArea(label)) continue;
-    const id = listingAreaId(property);
+    // Quick links drill into communities; city-only inventory stays in results.
+    const label = listingNeighborhood(property);
+    if (!normalizeArea(label) || normalizeArea(label) === normalizeArea(property.city)) continue;
+    const id = quickLinkAreaId(property);
+    const trackable = !id.startsWith('address:');
     const name = label.trim().replace(/\s+/gu, ' ');
-    const area = groups.get(id) || {id, name, city:String(property.city || '').trim(), listingCount:0, clickCount:clickCounts.get(id) || 0};
+    const area = groups.get(id) || {id, name, city:String(property.city || '').trim(), listingCount:0, clickCount:trackable ? clickCounts.get(id) || 0 : 0, trackable};
     if (name.localeCompare(area.name, 'en') < 0) area.name = name;
     area.listingCount++;
     groups.set(id,area);

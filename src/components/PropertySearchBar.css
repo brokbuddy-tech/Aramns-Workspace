@@ -7,65 +7,57 @@
   z-index: 20;
   isolation: isolate;
   width: 100%;
-  max-width: 1150px;
   margin-inline: auto;
   border: 1px solid #E5E7EB;
   border-radius: 12px;
   background: #FFFFFF;
   color: #111827;
   box-shadow: 0 3px 14px rgb(0 0 0 / 3%);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.45;
 }
 .property-search button, .property-search input, .property-search select { font: inherit; }
 .property-search button { cursor: pointer; }
 .property-search button:disabled, .property-search select:disabled { cursor: default; opacity: .46; }
 .property-search :is(button,input,select):focus-visible { outline: 2px solid var(--search-accent); outline-offset: 3px; }
-.property-search-body { padding: 20px; }
-.property-search-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; }
-.property-search-main { margin-top: 16px; }
-.property-search-refinements { margin-top: 14px; }
-.property-search-grid > * { min-width: 0; }
-.property-search-segment { display: flex; align-items: stretch; margin: 0; padding: 3px; min-height: 49px; border: 1px solid var(--search-border); border-radius: 8px; background: #F9F9FB; }
-.property-search-segment button { flex: 1; min-width: 0; padding: 8px 4px; border: 0; border-radius: 5px; background: transparent; white-space: nowrap; color: #4B5563; transition: background .15s,color .15s; }
+.property-search-body { padding: 12px; }
+.property-search-toolbar { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; align-items: center; }
+.property-search-toolbar > * { min-width: 0; }
+.property-search-actions { grid-column: span 2; display: flex; gap: 6px; }
+.property-search-actions button { flex: 1; min-height: 40px; white-space: nowrap; }
+.property-search-ai { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 8px 10px; border: 1px solid #9E7B3666; border-radius: 7px; color: #7C5E20; background: #F5F4EF; font-weight: 600 !important; }
+.property-search-ai:hover { background: #eeeadd; border-color: #9E7B36; }
+.property-search-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; margin-top: 8px; }
+.property-search-segment { display: flex; align-items: stretch; margin: 0; padding: 3px; height: 40px; border: 1px solid var(--search-border); border-radius: 7px; background: #F9F9FB; }
+.property-search-segment button { flex: 1; min-width: 0; padding: 4px; border: 0; border-radius: 4px; background: transparent; white-space: nowrap; font-size: 11px; color: #4B5563; transition: background .15s,color .15s; }
 .property-search-segment button:hover { background: #F1F3F5; }
 .property-search-segment button[aria-pressed="true"] { background: #000000; color: #FFFFFF; font-weight: 600; }
-.property-search-top > * { min-height: 56px; }
-.property-search-location { display: flex; grid-column: span 3; align-items: center; gap: 10px; padding-inline: 16px; background: #F9F9FB; border: 1px solid var(--search-border); border-radius: 8px; }
+.property-search-location { display: flex; grid-column: span 2; height: 40px; align-items: center; gap: 6px; padding-inline: 10px; background: #F9F9FB; border: 1px solid var(--search-border); border-radius: 7px; }
 .property-search-location > svg { flex-shrink: 0; color: var(--search-accent); }
 .property-search-location:focus-within { border-color: var(--search-accent); }
 .property-search-location input { width: 100%; min-width: 0; background: transparent; outline: none !important; border: 0; color: #111827; }
 .property-search-location input::placeholder { color: #9CA3AF; }
-.property-search-submit { padding: 10px 18px; border-radius: 8px; background: #000000; border: 1px solid #000000; color: white; font-weight: 600 !important; transition: background .15s; }
+.property-search-submit { padding: 8px 12px; border-radius: 7px; background: #000000; border: 1px solid #000000; color: white; font-weight: 600 !important; transition: background .15s; }
 .property-search-submit:hover { background: #262626; }
 .property-search-control-wrap { min-width: 0; }
-.property-search-control, .property-search-sort { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; height: 49px; padding: 0 16px; border: 1px solid var(--search-border); border-radius: 8px; background: #F9F9FB; text-align: left; }
+.property-search-control, .property-search-sort { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; height: 40px; padding: 0 9px; border: 1px solid var(--search-border); border-radius: 7px; background: #F9F9FB; text-align: left; }
 .property-search-control > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .property-search-control:hover, .property-search-sort:hover { border-color: #9CA3AF; }
 .property-search-control.is-open { border-color: var(--search-accent); background: #fff; }
-.property-search-caret { display: block; flex-shrink: 0; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #9CA3AF; transition: transform .15s; }
+.property-search-caret { display: block; flex-shrink: 0; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid #9CA3AF; transition: transform .15s; }
 .property-search-control.is-open .property-search-caret { transform: rotate(180deg); }
 .property-search-sort { position: relative; }
-.property-search-sort select { appearance: none; min-width: 0; width: 100%; height: 100%; border: 0; background: transparent; outline: none; padding-right: 20px; cursor: pointer; color: inherit; text-overflow: ellipsis; }
-.property-search-sort .property-search-caret { position: absolute; right: 16px; pointer-events: none; }
+.property-search-sort select { appearance: none; min-width: 0; width: 100%; height: 100%; border: 0; background: transparent; outline: none; padding-right: 12px; cursor: pointer; color: inherit; text-overflow: ellipsis; }
+.property-search-sort .property-search-caret { position: absolute; right: 9px; pointer-events: none; }
 .property-search-sort:focus-within { outline: 2px solid var(--search-accent); outline-offset: 2px; }
 .property-search-media { display: flex; flex-direction: column; justify-content: center; gap: 9px; font-size: 11px; color: #6B7280; }
 .property-search-media label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
 .property-search input[type="checkbox"] { width: 14px; height: 14px; flex-shrink: 0; accent-color: var(--search-accent); }
-.property-search-context-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 12px; }
-.property-search-context-row .property-search-media { flex-direction: row; gap: 16px; }
 .property-search-note { font-size: 12px; line-height: 1.55; color: #6B7280; }
-.property-search-count { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 3px; min-height: 49px; padding-inline: 12px; color: #6B7280; font-size: 13px; }
+.property-search-count { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: #6B7280; font-size: 11px; }
 .property-search-count strong { font-weight: 600; color: #111827; }
-.property-search-sort-summary { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.property-search-sort-summary .property-search-count { min-height: 0; padding-block: 2px; }
 .property-search-clear { color: var(--search-accent); background: transparent; border: 0; padding: 3px 0; font-size: 11px !important; }
 .property-search-clear:hover { text-decoration: underline; }
-.property-search-assist { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 58px; padding: 14px 20px; border-radius: 0 0 11px 11px; background: #F9F9FB; color: #6B7280; font-size: 13px; }
-.property-search-assist > div, .property-search-assist > button { display: flex; align-items: center; gap: 10px; }
-.property-search-assist > div > svg { flex-shrink: 0; color: var(--search-accent); }
-.property-search-assist button { flex-shrink: 0; padding: 0; border: 0; background: transparent; color: #111827; font-size: 12px; font-weight: 600; }
-.property-search-assist button:hover { color: #000000; }
 .property-search-active { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
 .property-search-active button { display: flex; align-items: center; gap: 8px; max-width: 100%; padding: 5px 10px; border: 1px solid #E5E7EB; border-radius: 100px; background: #F1F3F5; color: #374151; font-size: 11px; }
 .property-search-active button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -113,21 +105,29 @@
 .property-search-frequency button:hover:not(:disabled), .property-search-option-list button:hover { background: #F1F3F5; }
 .property-search-frequency .property-search-note { margin: 10px 7px 4px; }
 .property-search-option-list { display: flex; flex-direction: column; gap: 4px; }
+@media (min-width: 1280px) {
+  .property-search-toolbar { display: flex; gap: 6px; }
+  .property-search-toolbar > .property-search-control-wrap, .property-search-toolbar > .property-search-sort { flex: 1; }
+  .property-search-toolbar > .property-search-location { flex: 1.85; }
+  .property-search-toolbar > .property-search-segment { flex: 1.55; }
+  .property-search-actions { flex: 0 0 auto; }
+  .property-search-toolbar.is-off-plan { font-size: 11px; }
+}
 @media (max-width: 767px) {
-  .property-search { font-size: 13px; }
-  .property-search-body { padding: 14px; }
-  .property-search-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
-  .property-search-top { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .property-search-location { grid-column: span 2; min-height: 50px; padding-inline: 13px; }
-  .property-search-submit { grid-column: span 2; min-height: 45px; }
-  .property-search-main, .property-search-refinements { margin-top: 10px; }
-  .property-search-control, .property-search-sort { padding-inline: 11px; height: 46px; }
-  .property-search-segment { min-height: 46px; }
-  .property-search-segment button { padding-inline: 2px; font-size: 11px; }
-  .property-search-assist { flex-wrap: wrap; gap: 10px; padding: 12px 14px; font-size: 12px; }
-  .property-search-assist > div { gap: 7px; }
-  .property-search-assist > div > svg { width: 17px; }
-  .property-search-assist button { margin-left: auto; font-size: 11px; }
+  .property-search-body { padding: 10px; }
+  .property-search-toolbar { grid-template-columns: minmax(0,1fr) 44px; }
+  .property-search-location { grid-column: auto; }
+  .property-search-filter-toggle { position: relative; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--search-border); border-radius: 7px; background: #F9F9FB; color: #111827; }
+  .property-search-filter-toggle:hover, .property-search-filter-toggle.is-open { border-color: var(--search-accent); background: var(--search-tint); }
+  .property-search-filter-count { position: absolute; top: -6px; right: -6px; display: grid; place-items: center; min-width: 19px; height: 19px; padding-inline: 4px; border-radius: 10px; background: #111827; color: #fff; font-size: 10px; }
+  .property-search-filter-panel { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; padding-block: 10px; border-top: 1px solid var(--search-border); border-bottom: 1px solid var(--search-border); }
+  .property-search-filter-panel[hidden] { display: none; }
+  .property-search-filter-panel > * { min-width: 0; }
+  .property-search-filter-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; }
+  .property-search-filter-heading h3 { font-size: 14px; font-weight: 600; }
+  .property-search-filter-heading button { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 7px; background: var(--search-tint); }
+  .property-search-filter-panel > .property-search-segment, .property-search-filter-panel > .property-search-media, .property-search-filter-panel > .property-search-note { grid-column: 1 / -1; }
+  .property-search-actions button, .property-search-location, .property-search-control, .property-search-sort, .property-search-segment { min-height: 44px; height: 44px; }
   .property-search-dropdown-body { padding: 15px; }
   .property-search-dropdown-footer { padding: 0 15px 15px; }
   .property-search-type-options { gap: 8px; }

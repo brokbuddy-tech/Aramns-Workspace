@@ -1,0 +1,49 @@
+.official-profile-links { display:flex; align-items:center; justify-content:space-evenly; flex-wrap:wrap; gap:10px; padding:8px 0 0; }
+.official-profile-link { display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; flex:0 0 48px; border:1px solid #e5e7eb; border-radius:12px; background:#fff; transition:background .15s,border-color .15s; }
+.official-profile-link:hover { border-color:#9E7B36; background:#FAF8F5; }
+.official-profile-link:focus-visible { outline:2px solid #9E7B36; outline-offset:4px; }
+.official-profile-link img { display:block; width:30px; height:30px; object-fit:contain; }
+.official-profile-link svg { flex-shrink:0; }
+.brand-facebook { color:#1877f2; }
+.brand-linkedin { color:#0a66c2; }
+.official-instagram-mark { display:grid; place-items:center; width:30px; height:30px; color:#fff; border-radius:8px; background:radial-gradient(circle at 30% 110%,#ffdc80 5%,#f56040 40%,#c13584 65%,#833ab4 90%); }
+.official-profile-link.is-unavailable { opacity:.4; cursor:default; }
+.profile-biography { min-width:0; }
+.profile-bio { background:transparent; overflow-wrap:anywhere; }
+.profile-bio > * + * { margin-top:12px; }
+.profile-metrics { grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr)); }
+@media(min-width:1024px) {
+  .profile-biography { display:flex; flex-direction:column; min-height:0; }
+  .profile-area-links { margin-top:auto; }
+}
+@media(max-width:380px) {
+  .official-profile-links { justify-content:space-between; gap:8px; }
+  .official-profile-link { width:44px; height:44px; flex-basis:44px; }
+}
+@media(max-width:767px) {
+  .profile-page { padding-top:calc(96px + env(safe-area-inset-top)); padding-bottom:48px; }
+  .profile-page .profile-header { gap:24px; }
+  .profile-header > div { min-width:0; }
+  .profile-page .profile-portrait { height:clamp(280px,84vw,340px); }
+  .profile-page .profile-contact-actions { grid-template-columns:none; grid-auto-columns:minmax(0,1fr); grid-auto-flow:column; }
+  .profile-contact-actions > :is(a,button) { min-width:0; min-height:60px; flex-direction:column; gap:6px; padding:9px 4px; font-size:11px; line-height:1.3; letter-spacing:0; text-transform:none; text-align:center; }
+  .profile-contact-actions svg { width:16px; height:16px; }
+  .profile-contact-actions .truncate { max-width:100%; overflow:visible; white-space:normal; text-overflow:clip; overflow-wrap:anywhere; }
+  .profile-actions .official-profile-links { display:grid; grid-template-columns:repeat(var(--profile-link-count),minmax(0,1fr)); justify-items:center; gap:8px; padding-top:12px; }
+  .profile-actions .official-profile-link { width:44px; height:44px; flex-basis:44px; }
+  .profile-actions .official-profile-link > :is(img,svg) { width:26px; height:26px; }
+  .profile-actions .official-instagram-mark { width:28px; height:28px; }
+  .profile-actions .official-instagram-mark svg { width:22px; height:22px; }
+  .profile-details h1 { font-size:28px; line-height:1.2; overflow-wrap:anywhere; }
+  .profile-page .profile-meta { flex-direction:column; align-items:flex-start; gap:8px; line-height:1.6; }
+  .profile-region { gap:6px; }
+  .profile-page .profile-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 20px; padding:16px; }
+  .profile-metrics > :last-child:nth-child(odd) { grid-column:1 / -1; }
+  .profile-metrics .profile-metric-label { font-size:10px; line-height:1.5; letter-spacing:.08em; }
+  .profile-metrics .profile-metric-value { display:block; padding-top:0; line-height:1.5; overflow-wrap:anywhere; }
+  .profile-biography > h3 { line-height:1.6; letter-spacing:.12em; }
+  .profile-agency { gap:12px; }
+  .profile-agency .profile-direct-links { flex-direction:column; align-items:flex-start; gap:8px; width:100%; }
+  .profile-direct-links > span { display:none; }
+}
+@media(prefers-reduced-motion:reduce) { .official-profile-link { transition:none; } }

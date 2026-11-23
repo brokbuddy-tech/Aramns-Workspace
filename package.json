@@ -10,7 +10,9 @@
     "preview": "node server/index.mjs",
     "test": "node --test --experimental-test-isolation=none tests/*.test.mjs",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit --ignoreDeprecations 6.0",
-    "test:browser": "node node_modules/@playwright/test/cli.js test"
+    "test:browser": "node node_modules/@playwright/test/cli.js test",
+    "audit:template-auth": "node scripts/audit-template-history.mjs",
+    "test:brokbuddy-contract": "node scripts/check-brokbuddy-contract.mjs"
   },
   "dependencies": {
     "@types/node": "^26.6.5",

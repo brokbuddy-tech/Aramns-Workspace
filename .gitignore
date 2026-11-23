@@ -11,3 +11,6 @@ coverage/
 .codex/
 .aws/
 .qodo/
+
+# Local generated documentation and validation reports
+/docs/

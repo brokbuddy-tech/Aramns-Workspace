@@ -1,35 +1,77 @@
+import {createFeedbackHandler} from './feedback-http.mjs';
 import {randomUUID} from 'node:crypto';
 import {PublicError} from './brokbuddy.mjs';
 import {getPublicMapsConfig} from './maps.mjs';
+import {createCredentialGuard} from './template-security.mjs';
+import {validSingleLine,validPhone,validMessage} from '../src/lib/inquiry-validation.mjs';
 const message = 'We could not send your enquiry. Please try again.';
+const invalidInquiry=()=>new PublicError(400,'Please check your enquiry.');
+function validateSpecialNotes(value) {
+  if(!Array.isArray(value) || value.length>40) throw invalidInquiry();
+  const reserved=/password|secret|authorization|cookie|template.*code|api[ _-]*key|access[ _-]*token/i;
+  const keys=new Set();
+  const scalar=input=>{
+    if(typeof input==='boolean' || typeof input==='number' && Number.isFinite(input)) return input;
+    if(typeof input==='string' && input.length<=2000 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]|\p{Cs}/u.test(input)) return input.trim();
+    throw invalidInquiry();
+  };
+  const notes=value.map(entry=>{
+    if(!entry || typeof entry!=='object' || Array.isArray(entry) || Object.keys(entry).some(key=>!['key','label','value'].includes(key))) throw invalidInquiry();
+    if(!validSingleLine(entry.key,1,80) || !/^[a-zA-Z][a-zA-Z0-9_-]*$/u.test(entry.key.trim()) || reserved.test(entry.key) || !validSingleLine(entry.label,1,160) || reserved.test(entry.label)) throw invalidInquiry();
+    const key=entry.key.trim();if(keys.has(key)) throw invalidInquiry();keys.add(key);
+    if(Array.isArray(entry.value) && entry.value.length>20) throw invalidInquiry();
+    return {key,label:entry.label.trim(),value:Array.isArray(entry.value) ? entry.value.map(scalar).filter(item=>item!=='') : scalar(entry.value)};
+  });
+  if(JSON.stringify(notes).length>16000) throw invalidInquiry();
+  return notes.filter(entry=>entry.value!=='' && (!Array.isArray(entry.value) || entry.value.length));
+}
 export function validateInquiry(value) {
   if(!value || typeof value!=='object' || Array.isArray(value)) throw new PublicError(400,'Please check your enquiry.');
-  const allowed=['name','email','phone','message','listingId','budget','propertyType'];
+  const allowed=['name','email','phone','message','listingId','budget','propertyType','nationality','transactionType','specialNotes'];
   if(Object.keys(value).some(key=>!allowed.includes(key))) throw new PublicError(400,'Please check your enquiry.');
   const body={};
-  for(const [key,min,max] of [['name',2,120],['message',10,4000],['email',0,254],['phone',0,40],['listingId',1,120],['propertyType',0,120]]) {
+  for(const [key,min,max] of [['name',2,120],['message',10,4000],['email',0,254],['phone',0,40],['listingId',1,120],['propertyType',0,120],['nationality',0,120]]) {
     if(value[key]===undefined && !['name','message'].includes(key)) continue;
-    if(typeof value[key]!=='string' || value[key].trim().length<min || value[key].trim().length>max || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value[key])) throw new PublicError(400,'Please check your name, contact details and message (10–4000 characters).');
+    if(!(key==='message' ? validMessage(value[key]) : validSingleLine(value[key],min,max))) throw new PublicError(400,'Please check your name, contact details and message (10–4000 characters).');
     body[key]=value[key].trim();
   }
   if(body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) throw new PublicError(400,'Please enter a valid email address.');
+  if(body.phone && !validPhone(body.phone)) throw new PublicError(400,'Please enter a valid phone number with 7–15 digits.');
+  if(body.listingId && !/^[A-Za-z0-9_-]{1,120}$/u.test(body.listingId)) throw invalidInquiry();
   if(!body.email && !body.phone) throw new PublicError(400,'Please provide an email address or phone number.');
   if(value.budget!==undefined) {
     if(typeof value.budget!=='number' || !Number.isFinite(value.budget) || value.budget<0 || value.budget>1_000_000_000_000) throw new PublicError(400,'Please check your budget.');
     body.budget=value.budget;
   }
+  if(value.transactionType!==undefined) {
+    if(!['buy','rent','BUY','RENT','SALE'].includes(value.transactionType)) throw invalidInquiry();
+    body.transactionType=value.transactionType;
+  }
+  if(value.specialNotes!==undefined) body.specialNotes=validateSpecialNotes(value.specialNotes);
   return body;
 }
 export function createApiHandler(client, env = process.env) {
+  const containsCredential=createCredentialGuard(env);
+  const feedback=createFeedbackHandler(client.feedback,env,containsCredential);
   return async (req,res) => {
     const responseHeaders={};
-    const send=(status,data)=>{res.writeHead(status,{...responseHeaders,'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin'}); res.end(JSON.stringify(data));};
+    const send=(status,data)=>{
+      if(containsCredential(data)) {status=503;data={message:'This broker website is currently unavailable. Please try again later.'};}
+      res.writeHead(status,{...responseHeaders,'content-type':'application/json; charset=utf-8','cache-control':'no-store','cdn-cache-control':'no-store','vercel-cdn-cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin'});
+      res.end(JSON.stringify(data));
+    };
     try {
       const url=new URL(req.url,'http://localhost');
+      if(url.pathname==='/api/feedback' || url.pathname.startsWith('/api/feedback/')) return feedback(req,res,url);
       if (url.pathname === '/api/maps-config') {
         if (req.method !== 'GET') return send(405, {message: 'Method not allowed.'});
         if (url.search) return send(400, {message: 'Invalid request.'});
         return send(200, getPublicMapsConfig(env));
+      }
+      if (url.pathname === '/api/branding') {
+        if (req.method !== 'GET') return send(405, {message:'Method not allowed.'});
+        if (url.search) return send(400, {message:'Invalid request.'});
+        return send(200, await client.branding());
       }
       const cookies = String(req.headers.cookie || '').split(';').map(value=>value.trim());
       let visitorId = cookies.find(value=>value.startsWith('bb_visitor='))?.slice('bb_visitor='.length);
@@ -37,6 +79,7 @@ export function createApiHandler(client, env = process.env) {
       if(req.method==='GET' && url.pathname==='/api/site') {
         const keys=[...url.searchParams.keys()];
         if(keys.some(k=>k!=='listingId') || url.searchParams.getAll('listingId').length>1) throw new PublicError(400,'Invalid request.');
+        if(url.searchParams.has('listingId') && !/^[A-Za-z0-9_-]{1,120}$/u.test(url.searchParams.get('listingId'))) throw new PublicError(400,'Invalid request.');
         return send(200,await client.site(url.searchParams.get('listingId')));
       }
       const visitorBootstrap=url.pathname==='/api/visitor';
@@ -44,6 +87,7 @@ export function createApiHandler(client, env = process.env) {
       const viewMatch=url.pathname.match(/^\/api\/property-views\/([A-Za-z0-9_-]{1,120})$/);
       if(url.pathname!=='/api/inquiries' && !viewMatch && !visitorBootstrap && !quickLinkClick) return send(404,{message:'Not found.'});
       if(req.method!=='POST') return send(405,{message:'Method not allowed.'});
+      if(url.search) throw new PublicError(400,'Invalid request.');
       // Host is the same public host used for this request. Do not trust forwarded
       // origin/host headers; the reverse proxy must preserve Host and terminate TLS.
       let origin;

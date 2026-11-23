@@ -10,9 +10,15 @@
     }
   },
   "rewrites": [
+    {"source": "/api/feedback", "destination": "/api/index"},
+    {"source": "/api/feedback/:path*", "destination": "/api/index"},
     {"source": "/api/site", "destination": "/api/index"},
+    {"source": "/api/branding", "destination": "/api/index"},
     {"source": "/api/inquiries", "destination": "/api/index"},
     {"source": "/api/maps-config", "destination": "/api/index"},
+    {"source": "/api/visitor", "destination": "/api/index"},
+    {"source": "/api/property-views/:id", "destination": "/api/index"},
+    {"source": "/api/quick-link-clicks", "destination": "/api/index"},
     {"source": "/:path((?!api(?:/|$)|.*\\.[^/]+$).*)", "destination": "/index.html"}
   ]
 }

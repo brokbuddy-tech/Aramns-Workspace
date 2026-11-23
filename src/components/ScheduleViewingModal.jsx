@@ -1,3 +1,4 @@
+import {displayPropertyLocation} from '../lib/property-presentation.mjs';
 import {useInquiry} from '../lib/inquiry';
 import InquiryError from './InquiryError';
 import React, { useState, useEffect } from 'react';
@@ -107,7 +108,7 @@ export default function ScheduleViewingModal({ isOpen, onClose, preselectedPrope
               >
                 {PROPERTIES.map(p => (
                   <option key={p.id} value={p.id} className="bg-white text-[#0A0A0C]">
-                    {p.title} — {p.priceFormatted} ({p.location})
+                    {[p.title, p.priceFormatted, displayPropertyLocation(p)].filter(Boolean).join(' — ')}
                   </option>
                 ))}
               </select>

@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import {hasDisplayValue, propertySummaryMetrics} from '../lib/display-data.mjs';
+import {displayPropertyLocation} from '../lib/property-presentation.mjs';
+import React from 'react';
 import { Bed, Bath, Maximize2, MapPin, ArrowUpRight } from 'lucide-react';
+import ListingShareButton from './ListingShareButton';
 
 export default function PropertyCard({ 
   property, 
@@ -16,12 +19,16 @@ export default function PropertyCard({
   };
 
   const badgeInfo = getBadge();
+  const location=displayPropertyLocation(property);
+  const metrics=propertySummaryMetrics(property);
+  const metricIcons={beds:Bed,baths:Bath,sqft:Maximize2};
 
   return (
     <div
       onClick={() => onSelectProperty(property)}
       className="group relative bg-white border border-[#E5E7EB] rounded-[14px] overflow-hidden cursor-pointer transition-all duration-300 hover:border-black/25 hover:-translate-y-1 hover:shadow-xl flex flex-col justify-between"
     >
+      <ListingShareButton property={property}/>
       {/* 1. TOP MEDIA CONTAINER (16:10 Aspect Ratio with Rounded Top) */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-stone-100 rounded-t-[14px]">
         <img
@@ -36,7 +43,7 @@ export default function PropertyCard({
 
         {/* Top-Right Badge: Dynamic by listing category */}
         <div className="absolute top-3.5 right-3.5 z-10 flex items-center gap-1.5">
-          {property.handover && (
+          {hasDisplayValue(property.handover) && (
             <span className="hidden sm:inline-block px-2 py-0.5 rounded-[4px] text-[10px] font-semibold tracking-wider uppercase text-white bg-black/60 backdrop-blur-md border border-white/20">
               {property.handover}
             </span>
@@ -57,38 +64,30 @@ export default function PropertyCard({
           <h3 className="text-[20px] font-bold text-[#0A0A0C] tracking-tight group-hover:text-black transition-colors line-clamp-1">
             {property.title}
           </h3>
-          <div className="flex items-center gap-1.5 text-[13px] text-[#4B5563] truncate">
+          {location && <div className="flex items-center gap-1.5 text-[13px] text-[#4B5563] truncate">
             <MapPin size={14} className="text-[#9CA3AF] shrink-0" />
-            <span className="truncate">{property.location}</span>
-          </div>
+            <span className="truncate">{location}</span>
+          </div>}
         </div>
 
-        {/* Specs Row */}
-        <div>
-          {/* Thin Horizontal Divider */}
+        {metrics.length > 0 && <div>
           <div className="border-t border-[#E5E7EB] mb-3" />
-          
-          <div className="flex items-center gap-4 sm:gap-5 text-[13px] sm:text-[14px] text-[#4B5563]">
-            <div className="flex items-center gap-1.5">
-              <Bed size={16} className="text-[#9CA3AF]" />
-              <span>{property.beds} <span className="hidden sm:inline">Beds</span></span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Bath size={16} className="text-[#9CA3AF]" />
-              <span>{property.baths} <span className="hidden sm:inline">Baths</span></span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Maximize2 size={15} className="text-[#9CA3AF]" />
-              <span>{property.sqft.toLocaleString()} sqft</span>
-            </div>
+          <div className="flex flex-wrap items-center gap-4 sm:gap-5 text-[13px] sm:text-[14px] text-[#4B5563]">
+            {metrics.map(({key,value,label})=>{
+              const Icon=metricIcons[key];
+              return <div key={key} className="flex items-center gap-1.5">
+                <Icon size={16} className="text-[#9CA3AF]"/>
+                <span>{value.toLocaleString()} <span className={key==='sqft' ? '' : 'hidden sm:inline'}>{label}</span></span>
+              </div>;
+            })}
           </div>
-        </div>
+        </div>}
 
         {/* Price & Action Row */}
         <div className="border-t border-[#E5E7EB] pt-3.5 flex items-center justify-between">
-          <div className="text-[24px] font-bold text-[#0A0A0C] tracking-tight font-sans">
-            {property.priceFormatted || ''}
-          </div>
+          {hasDisplayValue(property.priceFormatted) && <div className="text-[24px] font-bold text-[#0A0A0C] tracking-tight font-sans">
+            {property.priceFormatted}
+          </div>}
 
           <button
             type="button"

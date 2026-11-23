@@ -1,3 +1,4 @@
+import {hasDisplayValue} from '../lib/display-data.mjs';
 import React, { useState, useMemo, useEffect } from 'react';
 import { AGENTS } from '../data/agents';
 import {plainText} from './RichText';
@@ -10,8 +11,8 @@ export default function AgentsDirectoryPage({ onNavigate, onContactAgent }) {
   const [visibleCount, setVisibleCount] = useState(4);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const specializations = ['All', ...new Set(AGENTS.map(a=>a.specialization).filter(Boolean))];
-  const regions = ['All', ...new Set(AGENTS.map(a=>a.region).filter(Boolean))];
+  const specializations = ['All', ...new Set(AGENTS.map(a=>a.specialization).filter(hasDisplayValue))];
+  const regions = ['All', ...new Set(AGENTS.map(a=>a.region).filter(hasDisplayValue))];
 
   // Filter agents based on query and selections
   const filteredAgents = useMemo(() => {
@@ -193,18 +194,18 @@ export default function AgentsDirectoryPage({ onNavigate, onContactAgent }) {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
 
                       {/* Career Volume Badge */}
-                      <div className="absolute top-3 right-3">
+                      {hasDisplayValue(agent.careerVolume) && <div className="absolute top-3 right-3">
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-white/95 text-black border border-stone-200 shadow-sm backdrop-blur-md">
                           {agent.careerVolume}
                         </span>
-                      </div>
+                      </div>}
 
                       {/* Region Pill */}
-                      <div className="absolute bottom-3 left-3">
+                      {hasDisplayValue(agent.region) && <div className="absolute bottom-3 left-3">
                         <span className="px-2.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-black/75 text-white backdrop-blur-md">
                           {agent.region.split(',')[0]}
                         </span>
-                      </div>
+                      </div>}
                     </div>
 
                     {/* Details Block */}
@@ -212,9 +213,9 @@ export default function AgentsDirectoryPage({ onNavigate, onContactAgent }) {
                       <h3 className="text-[20px] font-bold text-[#111827] tracking-tight font-sans group-hover:text-black transition-colors">
                         {agent.name}
                       </h3>
-                      <p className="text-[13px] text-[#6B7280] font-normal">
+                      {hasDisplayValue(agent.title) && <p className="text-[13px] text-[#6B7280] font-normal">
                         {agent.title}
-                      </p>
+                      </p>}
                       <p className="text-[12px] text-[#475569] font-light line-clamp-2 pt-1 leading-relaxed">
                         {plainText(agent.bio)}
                       </p>
@@ -223,9 +224,9 @@ export default function AgentsDirectoryPage({ onNavigate, onContactAgent }) {
 
                   {/* Card Action Row */}
                   <div className="p-5 pt-0 border-t border-black/[0.04] flex items-center justify-between text-xs text-[#111827] mt-3">
-                    <span className="font-semibold text-bronze uppercase tracking-wider text-[11px] font-mono">
+                    {hasDisplayValue(agent.experience) && <span className="font-semibold text-bronze uppercase tracking-wider text-[11px] font-mono">
                       {agent.experience}
-                    </span>
+                    </span>}
 
                     <div className="flex items-center gap-1.5 font-medium group-hover:text-black transition-colors">
                       <span>View Profile</span>

@@ -22,10 +22,17 @@ Existing server-only `BROKBUDDY_API_BASE_URL`, `BROKBUDDY_BROKER_PROFILE_SLUG` a
   When an older feed lacks counts, Hottest deals is disabled and requested
   popularity falls back to Latest.
 - Popular areas sits above the results search bar. It groups the complete
-  filtered inventory before card pagination using API area IDs, ranks by views,
+  filtered inventory before card pagination using API area IDs, ranks by quick-link clicks,
   listing count and name, and preserves advanced filters and Buy/Rent paths in
   real results links. Its `quickLinksLimit` component prop defaults to six.
-  Loading uses the existing feed skeleton; empty searches show no invented totals.
+  Loading uses the animated courtyard scene; empty searches show no invented totals.
+  City-only communities are excluded. When a legacy feed repeats its city in
+  `community`, a named district before that city in a structured map address can
+  supply the area label. These links use local `address:` filter keys, retain
+  filters on navigation and refresh, and sort by listing quantity. They do not
+  send analytics or reuse city-level click totals: per-area click ranking needs
+  the backend to provide accurate communities/area IDs. Hide the navigation when
+  no eligible areas remain.
 
 The backend also offers the reusable
 `GET /api/public/broker-template/{slug}/popular-areas?transactionType=RENT&limit=6`

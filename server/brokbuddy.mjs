@@ -1,4 +1,6 @@
 // This module is imported by the Node server only. Never import it from src/.
+import {createFeedbackClient} from './feedback.mjs';
+import {createCredentialGuard} from './template-security.mjs';
 export class PublicError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -15,7 +17,7 @@ export function getConfig(env = process.env) {
   const code = env.BROKBUDDY_BROKER_CODE;
   try {
     const url = new URL(base);
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || !/^[a-z0-9-]{3,120}$/.test(slug || '') || !/^[a-f0-9]{32}$/.test(code || '')) throw unavailable();
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash || !/^[a-z0-9-]{3,120}$/.test(slug || '') || !/^[a-f0-9]{32}$/.test(code || '')) throw unavailable();
     if (url.protocol !== 'https:' && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) throw unavailable();
     return { base: url.origin, slug, code };
   } catch { throw unavailable(); }
@@ -32,14 +34,16 @@ export function publicAsset(value, base) {
 const link = value => value ? publicAsset(value, 'https://invalid.example') : undefined;
 export function mapAgent(agent, slug, base) {
   if (!record(agent) || agent.slug !== slug) return invalid();
+  const officeLicenseId=string(agent.orn || (record(agent.agency) ? agent.agency.orn : ''));
   return {
     id: required(agent.id), slug, name: required(agent.name), title: string(agent.title),
     bio: string(agent.bio), avatar: publicAsset(agent.avatarUrl || agent.avatar, base),
     phone: string(agent.phone), email: string(agent.email), whatsapp: string(agent.whatsapp),
     licenseId: string(agent.brn || agent.licenseNumber) || '—',
+    ...(officeLicenseId ? {officeLicenseId}:{}),
     languages: strings(agent.languages), specialization: strings(agent.specializations).join(', '),
     experience: agent.yearsExperience == null ? '—' : `${optionalNumber(agent.yearsExperience)} years`,
-    careerVolume: '—', region: '', agency: '—', testimonials: [], listingIds: [],
+    careerVolume: '—', region: '', agency: string(record(agent.agency) ? agent.agency.name : agent.agency).trim() || string(agent.agencyName).trim() || '—', testimonials: [], listingIds: [],
     socialLinks: {facebook:link(agent.facebook), instagram:link(agent.instagram), linkedin:link(agent.linkedin), twitter:link(agent.twitter)},
     website: link(agent.website),
   };
@@ -95,11 +99,14 @@ function mapQuickLinkClicks(value) {
 export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=10000}={}) {
   async function request(path, {method='GET',body,key,tracking=false,userAgent='',preview=false}={}) {
     const config = getConfig(env);
+    const containsCredential=createCredentialGuard(env);
     const endpoint = method === 'POST' && !tracking ? `/api/public/broker/${encodeURIComponent(config.slug)}/inquiry` : `/api/public/broker-template/${encodeURIComponent(config.slug)}${path}`;
     try {
+      if(containsCredential({body,key,userAgent,endpoint})) throw new PublicError(400,'Please check your enquiry.');
+      if(containsCredential(new URL(endpoint,config.base).href)) throw unavailable();
       const response=await fetchImpl(new URL(endpoint, config.base), {
         method, cache:'no-store', redirect:'error', signal:AbortSignal.timeout(timeoutMs),
-        headers:{accept:'application/json', ...(method==='GET' || tracking ? {'X-BrokBuddy-Broker-Code':config.code,...(tracking ? {'content-type':'application/json','user-agent':userAgent,'x-brokbuddy-preview':String(preview)}:{})} : {'content-type':'application/json','idempotency-key':key})},
+        headers:{accept:'application/json','X-BrokBuddy-Broker-Code':config.code,...(method==='POST' ? {'content-type':'application/json',...(tracking ? {'user-agent':userAgent,'x-brokbuddy-preview':String(preview)} : {'idempotency-key':key})} : {})},
         ...(body ? {body:JSON.stringify(body)} : {}),
       });
       if (response.status===429) throw new PublicError(429,'Too many requests. Please wait a moment before trying again.');
@@ -109,9 +116,9 @@ export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=
       }
       if (tracking && response.status===204) return {ok:true};
       const raw=await response.text();
-      if (raw.length>8_000_000 || raw.includes(config.code)) throw unavailable();
+      if (raw.length>8_000_000 || containsCredential(raw)) throw unavailable();
       const result=JSON.parse(raw);
-      if (!record(result)) throw unavailable();
+      if (!record(result) || containsCredential(result)) throw unavailable();
       return result;
     } catch(error) { if (error instanceof PublicError) throw error; throw unavailable(); }
   }
@@ -167,7 +174,10 @@ export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=
       if(listing.status!=='ACTIVE') throw new PublicError(400,'This property is unavailable for enquiries.');
     }
     const result=await request('',{method:'POST',body,key});
-    if(!record(result.inquiry) || typeof result.inquiry.id!=='string' || !result.inquiry.id.trim()) throw new PublicError(502,'Delivery could not be confirmed. Please retry your enquiry.');
+    const validId=value=>typeof value==='string' && value.trim().length>0 && value.length<=120 && !/[\u0000-\u001f\u007f]/u.test(value);
+    const confirmedInquiry=record(result.inquiry) && validId(result.inquiry.id);
+    const confirmedIntake=record(result.intake) && validId(result.intake.submissionId) && ['created','existing_opportunity','ownership_conflict','idempotent'].includes(result.intake.outcome) && typeof result.intake.ownershipPreserved==='boolean';
+    if(!confirmedInquiry && !confirmedIntake) throw new PublicError(502,'Delivery could not be confirmed. Please retry your enquiry.');
     return {ok:true};
   }
   async function recordView(id, body, {userAgent='',preview=false}={}) {
@@ -177,5 +187,9 @@ export function createBrokerClient({env=process.env, fetchImpl=fetch, timeoutMs=
   async function recordQuickLinkClick(body, {userAgent='',preview=false}={}) {
     return request('/quick-link-clicks', {method:'POST',body,tracking:true,userAgent,preview});
   }
-  return {site,inquire,recordView,recordQuickLinkClick};
+  async function branding() {
+    const {agent}=await profile();
+    return {name:agent.name,tagline:agent.title};
+  }
+  return {site,branding,inquire,recordView,recordQuickLinkClick,feedback:createFeedbackClient({env,fetchImpl,timeoutMs})};
 }

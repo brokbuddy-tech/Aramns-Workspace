@@ -1,3 +1,4 @@
+import {hasDisplayValue} from '../lib/display-data.mjs';
 import React, { useState, useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { 
@@ -89,7 +90,7 @@ export default function AboutUsPage({ onNavigate, onContactClick }) {
       value: '—',
       label: 'Client Satisfaction Rate'
     }
-  ];
+  ].filter(stat=>hasDisplayValue(stat.value));
 
   const values = [
     {
@@ -233,9 +234,9 @@ export default function AboutUsPage({ onNavigate, onContactClick }) {
       {/* ====================================================
           SECTION 4: KEY STATS / METRICS ROW
           ==================================================== */}
-      <section className="w-full bg-[#FFFFFF] py-16 sm:py-20 border-b border-stone-200/80">
+      {stats.length > 0 && (<section className="w-full bg-[#FFFFFF] py-16 sm:py-20 border-b border-stone-200/80">
         <div className="w-full max-w-[1360px] mx-auto px-6 sm:px-10 lg:px-14">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid gap-4 sm:gap-6" style={{gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 220px), 1fr))'}}>
             {stats.map((stat, idx) => {
               const IconComp = stat.icon;
               return (
@@ -259,7 +260,7 @@ export default function AboutUsPage({ onNavigate, onContactClick }) {
             })}
           </div>
         </div>
-      </section>
+      </section>)}
 
       {/* ====================================================
           SECTION 5: WHAT WE STAND FOR (Our Values)

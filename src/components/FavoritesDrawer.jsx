@@ -1,3 +1,5 @@
+import {hasDisplayValue} from '../lib/display-data.mjs';
+import {displayPropertyLocation} from '../lib/property-presentation.mjs';
 import React, { useEffect } from 'react';
 import { X, Trash2, ArrowRight, Heart, ExternalLink, Bed, Bath, Maximize2 } from 'lucide-react';
 
@@ -26,7 +28,7 @@ export default function FavoritesDrawer({
   if (!isOpen) return null;
 
   const totals = favoriteProperties.reduce((sum,item)=>{sum[item.currency]=(sum[item.currency] || 0)+item.price;return sum;},{});
-  const totalValue = Object.entries(totals).map(([currency,amount])=>new Intl.NumberFormat('en-US',{style:'currency',currency,maximumFractionDigits:0}).format(amount)).join(' · ') || '—';
+  const totalValue = Object.entries(totals).map(([currency,amount])=>new Intl.NumberFormat('en-US',{style:'currency',currency,maximumFractionDigits:0}).format(amount)).join(' · ') || '';
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -79,18 +81,18 @@ export default function FavoritesDrawer({
                 />
 
                 <div className="flex-1 min-w-0 space-y-1">
-                  <span className="text-[9px] uppercase tracking-wider text-bronze font-mono font-semibold">
+                  {hasDisplayValue(prop.category) && <span className="text-[9px] uppercase tracking-wider text-bronze font-mono font-semibold">
                     {prop.category}
-                  </span>
+                  </span>}
                   <h4 className="font-serif text-sm font-semibold text-[#0A0A0C] truncate group-hover:text-bronze transition-colors">
                     {prop.title}
                   </h4>
-                  <p className="text-[11px] text-[#64748B] truncate">
-                    {prop.location}
-                  </p>
-                  <p className="text-xs font-serif font-bold text-[#0A0A0C]">
+                  {hasDisplayValue(displayPropertyLocation(prop)) && <p className="text-[11px] text-[#64748B] truncate">
+                    {displayPropertyLocation(prop)}
+                  </p>}
+                  {hasDisplayValue(prop.priceFormatted) && <p className="text-xs font-serif font-bold text-[#0A0A0C]">
                     {prop.priceFormatted}
-                  </p>
+                  </p>}
                 </div>
 
                 <button

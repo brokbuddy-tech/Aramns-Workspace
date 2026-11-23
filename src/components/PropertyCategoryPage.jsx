@@ -1,4 +1,4 @@
-import {popularAreaLinks, listingAreaId, normalizeArea} from '../lib/property-popularity.mjs';
+import {popularAreaLinks, listingAreaId, quickLinkAreaId, listingNeighborhood, normalizeArea} from '../lib/property-popularity.mjs';
 import React, { useState, useMemo, useEffect } from 'react';
 import {X, Sparkles, Filter, RotateCcw, PhoneCall, ShieldCheck} from 'lucide-react';
 import PropertyCard from './PropertyCard';
@@ -153,7 +153,7 @@ export default function PropertyCategoryPage({
   const availableLocations = useMemo(() => {
     const locs = new Set();
     baseCategoryProperties.forEach(p => {
-      if (p.neighborhood) locs.add(p.neighborhood);
+      if (listingNeighborhood(p)) locs.add(listingNeighborhood(p));
       else if (p.cityState) locs.add(p.cityState.split(',')[0].trim());
     });
     return ['All', ...Array.from(locs).sort()];
@@ -212,9 +212,9 @@ export default function PropertyCategoryPage({
       }
 
       // 2. Location
-      if (selectedAreaId && listingAreaId(p) !== selectedAreaId) return false;
+      if (selectedAreaId && (selectedAreaId.startsWith('address:') ? quickLinkAreaId(p) : listingAreaId(p)) !== selectedAreaId) return false;
       if (!selectedAreaId && selectedLocation !== 'All') {
-        const pLoc = p.neighborhood || p.cityState || '';
+        const pLoc = listingNeighborhood(p) || p.neighborhood || p.cityState || '';
         if (!normalizeArea(pLoc).includes(normalizeArea(selectedLocation))) {
           return false;
         }
@@ -363,7 +363,7 @@ export default function PropertyCategoryPage({
       </section>
 
       {/* 2. FILTER BAR & PROPERTY LISTINGS SECTION */}
-      <section id="listings" className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-12 py-12 lg:py-16 space-y-10">
+      <section id="listings" className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-12 py-12 lg:py-16 space-y-6">
         
         <QuickLinkCards areas={quickLinks} />
 

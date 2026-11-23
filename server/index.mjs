@@ -9,7 +9,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const dev=process.argv.includes('--dev');
 const api=createApiHandler(createBrokerClient());
 const vite=dev ? await (await import('vite')).createServer({root,server:{middlewareMode:true},appType:'spa'}) : null;
-const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.mp4':'video/mp4','.woff2':'font/woff2'};
+const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.ico':'image/x-icon','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.mp4':'video/mp4','.woff2':'font/woff2','.ttf':'font/ttf'};
 const server=http.createServer(async (req,res)=>{
   let pathname;
   try {pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);} catch {res.writeHead(400);res.end('Invalid request.');return;}

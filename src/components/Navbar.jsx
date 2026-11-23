@@ -148,7 +148,8 @@ export default function Navbar({
     <>
       {/* FLOATING TOP NAVIGATION BAR CONTAINER */}
       <header
-        className="fixed top-4 sm:top-5 md:top-6 left-0 right-0 z-[9999] pointer-events-none"
+        className="site-header fixed top-4 sm:top-5 md:top-6 left-0 right-0 z-[9999] pointer-events-none"
+        data-visible={isVisible || mobileMenuOpen}
         style={{
           transform: isVisible || mobileMenuOpen ? 'translateY(0%)' : 'translateY(-120%)',
           opacity: isVisible || mobileMenuOpen ? 1 : 0,
@@ -159,7 +160,7 @@ export default function Navbar({
         }}
       >
         <div className="w-[calc(100%-24px)] sm:w-[calc(100%-48px)] lg:w-[calc(100%-64px)] xl:w-[calc(100%-80px)] 2xl:w-[calc(100%-96px)] mx-auto pointer-events-auto">
-          <div className="bg-[#000000] border border-white/10 rounded-[14px] sm:rounded-[16px] shadow-[0_16px_40px_rgba(0,0,0,0.45)] px-6 sm:px-8 lg:px-10 py-[14px] sm:py-[16px] relative flex items-center justify-between transition-all duration-300">
+          <div className="site-nav-surface bg-[#000000] border border-white/10 rounded-[14px] sm:rounded-[16px] shadow-[0_16px_40px_rgba(0,0,0,0.45)] px-6 sm:px-8 lg:px-10 py-[14px] sm:py-[16px] relative flex items-center justify-between transition-all duration-300">
 
             {/* Left Alignment: Brand Logo (Arman.png + Arman Alam) */}
             <a
@@ -169,14 +170,14 @@ export default function Navbar({
                 if (onNavigate) onNavigate('/');
                 else window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="flex items-center gap-2.5 sm:gap-3 hover:opacity-90 transition-opacity select-none cursor-pointer z-10"
+              className="site-brand flex items-center gap-2.5 sm:gap-3 hover:opacity-90 transition-opacity select-none cursor-pointer z-10"
             >
               <img
                 src="/arman.png"
                 alt="Arman Property Advisor logo"
                 className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-white/20 shadow-xs"
               />
-              <span className="text-[18px] sm:text-[21px] font-sans font-semibold text-[#FFFFFF] tracking-tight">
+              <span className="site-brand-name text-[18px] sm:text-[21px] font-sans font-semibold text-[#FFFFFF] tracking-tight">
                 {AGENTS[0]?.name}
               </span>
             </a>
@@ -255,7 +256,7 @@ export default function Navbar({
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 text-white hover:text-white/80 focus:outline-none transition-colors cursor-pointer"
+                className="site-nav-toggle p-2 text-white hover:text-white/80 focus:outline-none transition-colors cursor-pointer"
                 aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               >
                 {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}

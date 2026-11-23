@@ -26,9 +26,8 @@ test('long photo collections stay compact and the full gallery supports browsing
   await gallery.getByRole('button', {name:'Preview photo 2', exact:true}).click();
   await expect(gallery.getByText('Photo 2 of 18', {exact:true})).toBeVisible();
   const trigger = gallery.getByRole('button', {name:'View all photos (18)', exact:true});
-  const triggerBox = await trigger.boundingBox();
-  const galleryBox = await gallery.boundingBox();
-  expect(Math.abs(triggerBox.x + triggerBox.width / 2 - galleryBox.x - galleryBox.width / 2)).toBeLessThan(1);
+  await expect(gallery.locator('.property-photo-preview button').last()).toHaveAttribute('aria-label','View all photos (18)');
+  await expect(trigger.locator('.property-photo-remaining')).toHaveText('+14');
   await trigger.click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
@@ -86,9 +85,9 @@ test.describe('mobile gallery', () => {
   test('photos swipe in both directions, thumbnails scroll and the modal traps focus', async ({page}) => {
     const gallery = await openListing(page);
     expect((await gallery.boundingBox()).height).toBeLessThan(350);
-    await gallery.getByRole('button', {name:'Preview photo 4', exact:true}).tap();
     await gallery.getByRole('button', {name:'View all photos (18)', exact:true}).tap();
     const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', {name:'Go to photo 4', exact:true}).tap();
     await expect(dialog.getByRole('heading')).toHaveText('Property 01 — 4 / 18');
     const viewer = dialog.locator('.property-photo-viewer');
     const box = await viewer.boundingBox();

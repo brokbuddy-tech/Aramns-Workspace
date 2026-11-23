@@ -1,40 +1,16 @@
+import {hasDisplayValue} from '../lib/display-data.mjs';
 import React from 'react';
 import { TrendingUp, ShieldCheck, Award, Globe2 } from 'lucide-react';
 
-const STATS = [
-  {
-    icon: TrendingUp,
-    value: "$2.4B+",
-    label: "Completed Transactions",
-    caption: "Across ultra-luxury residences globally"
-  },
-  {
-    icon: ShieldCheck,
-    value: "150+",
-    label: "Exclusive Off-Market Estates",
-    caption: "Strictly confidential private collection"
-  },
-  {
-    icon: Award,
-    value: "98%",
-    label: "Client Retention Rate",
-    caption: "UHNW families & institutional trusts"
-  },
-  {
-    icon: Globe2,
-    value: "12",
-    label: "Global Metropolitan Hubs",
-    caption: "Direct brokerage & concierge advisory"
-  }
-];
-
-export default function KeyStats() {
+export default function KeyStats({stats=[]}) {
+  const availableStats=stats.filter(stat=>hasDisplayValue(stat.value));
+  if (!availableStats.length) return null;
   return (
     <section className="relative z-10 border-y border-stone-200/80 bg-white py-12 lg:py-16 w-full shadow-[0_2px_15px_rgba(0,0,0,0.02)]">
       <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-20">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6 divide-y sm:divide-y-0 lg:divide-x divide-stone-200/80">
           
-          {STATS.map((stat, index) => {
+          {availableStats.map((stat, index) => {
             const Icon = stat.icon;
             return (
               <div 

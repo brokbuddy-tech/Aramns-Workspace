@@ -1,5 +1,5 @@
-import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
-import {ArrowRight, MapPin, Sparkles, X} from 'lucide-react';
+import React, {useEffect, useId, useLayoutEffect, useRef, useState} from 'react';
+import {MapPin, SlidersHorizontal, Sparkles, X} from 'lucide-react';
 import {propertySector, rangeError} from '../lib/property-filters.mjs';
 import './PropertySearchBar.css';
 
@@ -48,6 +48,10 @@ export default function PropertySearchBar({
   const root = useRef(null);
   const popup = useRef(null);
   const triggers = useRef({});
+  const filterButton = useRef(null);
+  const filterPanelId = useId();
+  const [isMobile,setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches);
+  const [filtersExpanded,setFiltersExpanded] = useState(false);
   const [open,setOpen] = useState(null);
   const [draft,setDraft] = useState(null);
   const [position,setPosition] = useState({left:12,top:0,width:360,arrow:24,maxHeight:580,placement:'bottom'});
@@ -69,6 +73,24 @@ export default function PropertySearchBar({
   const paymentPlans = [...new Set(properties.filter(property => property.readiness === 'OFFPLAN').map(property => property.paymentPlan).filter(Boolean))].sort();
   const error = draft ? rangeError(selected) : '';
   const preview = draft && !error ? previewCount(draft) : resultCount;
+  const appliedFilterCount = activeChips.filter(chip => !['query','location','description'].includes(chip.key)).length + (value.sort !== 'featured' ? 1 : 0);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const resize = event => {
+      setIsMobile(event.matches);
+      setFiltersExpanded(false);
+      setOpen(null);
+    };
+    media.addEventListener('change',resize);
+    return () => media.removeEventListener('change',resize);
+  },[]);
+
+  const closeFilters = () => {
+    setOpen(null);
+    setFiltersExpanded(false);
+    filterButton.current?.focus({preventScroll:true});
+  };
 
   const close = (restore=false) => {
     if (restore) triggers.current[open]?.focus({preventScroll:true});
@@ -181,7 +203,7 @@ export default function PropertySearchBar({
     </div>
   );
 
-  const typeControl = control('type','Property type',value.type !== 'All' ? value.type : advanced.sector === 'residential' ? 'Residential' : advanced.sector === 'commercial' ? 'Commercial' : 'All property types',<>
+  const typeControl = control('type','Property type',value.type !== 'All' ? value.type : advanced.sector === 'residential' ? 'Residential' : advanced.sector === 'commercial' ? 'Commercial' : 'Type',<>
     <div role="tablist" aria-label="Property category" className="property-search-type-tabs">
       {['residential','commercial'].map(sector => <button key={sector} type="button" role="tab" aria-selected={typeSector === sector}
         onClick={() => setDraft(previous => ({...previous,type:'All',...(sector === 'commercial' ? {beds:'All'} : {}),advanced:{...previous.advanced,sector,...(sector === 'commercial' ? {baths:'All'} : {})}}))}>{sector === 'residential' ? 'Residential' : 'Commercial'}</button>)}
@@ -195,7 +217,7 @@ export default function PropertySearchBar({
     </fieldset>
   </>);
 
-  const bedsText = [value.beds === 'All' ? '' : value.beds === 'studio' ? 'Studio' : `${value.beds} beds`,advanced.baths === 'All' ? '' : `${advanced.baths} baths`].filter(Boolean).join(' · ') || 'Beds & Baths';
+  const bedsText = [value.beds === 'All' ? '' : value.beds === 'studio' ? 'Studio' : `${value.beds} beds`,advanced.baths === 'All' ? '' : `${advanced.baths} baths`].filter(Boolean).join(' · ') || 'Beds / Baths';
   const bedsControl = control('beds','Beds & Baths',bedsText,<>
     <RoomChoices legend="Bedrooms" label="Beds" value={draft?.beds || value.beds} options={[{value:'studio',label:'Studio'},...[1,2,3,4,5,6,7].map(number => ({value:String(number),label:String(number)})),{value:'8+',label:'8+'}]}
       onChange={next => setDraft(previous => ({...previous,beds:next}))}/>
@@ -248,21 +270,7 @@ export default function PropertySearchBar({
     {paymentPlans.map(plan => <button key={plan} type="button" aria-pressed={selected.paymentPlan === plan} onClick={() => update('paymentPlan',plan)}>{plan}</button>)}
   </div>,{disabled:paymentPlans.length === 0});
 
-  return (
-    <form ref={root} role="search" aria-label="Property search" className="property-search"
-      onSubmit={event => {event.preventDefault();if (open) apply();document.getElementById('property-results')?.scrollIntoView({block:'start',behavior:'smooth'});}}>
-      <div className="property-search-body">
-        <div className="property-search-grid property-search-top">
-          <div className="property-search-location">
-            <MapPin size={23}/>
-            <input type="search" aria-label="Search properties" list="property-search-locations" value={value.query || (value.location !== 'All' ? value.location : '')}
-              onChange={event => {const text=event.target.value;onChange(locations.includes(text) && text !== 'All' ? {location:text,query:''} : {location:'All',query:text});}}
-              placeholder="Enter location, property or keyword"/>
-            <datalist id="property-search-locations">{locations.filter(location => location !== 'All').map(location => <option key={location} value={location}/>)}</datalist>
-          </div>
-          <button type="submit" className="property-search-submit" disabled={Boolean(open && error)}>Search</button>
-        </div>
-        <div className="property-search-grid property-search-main">
+  const filterControls = (<>
           {isRent ? periodControl : <fieldset className="property-search-segment" aria-label="Completion status"><legend className="sr-only">Completion status</legend>
             {[['All','All'],['READY','Ready'],['OFFPLAN','Off-plan']].map(([key,text]) => <button key={key} type="button" aria-pressed={advanced.readiness === key}
               onClick={() => onChange({advanced:{...advanced,readiness:key,...(key !== 'OFFPLAN' ? {handoverBy:'',paymentPlan:'All'} : {})}})}>{text}</button>)}
@@ -270,14 +278,52 @@ export default function PropertySearchBar({
           {typeControl}
           {isOffPlan ? handoverControl : commercialOnly ? areaControl : bedsControl}
           {isOffPlan ? paymentControl : priceControl}
+          {isOffPlan ? <>{priceControl}{areaControl}</> : !commercialOnly && areaControl}
+          {amenityControl}
+          {sortControl}
+  </>);
+
+  return (
+    <form ref={root} role="search" aria-label="Property search" className="property-search"
+      onSubmit={event => {event.preventDefault();if (open && error) return;if (open) apply();setFiltersExpanded(false);document.getElementById('property-results')?.scrollIntoView({block:'start',behavior:'smooth'});}}
+      onKeyDown={event => {if (event.key === 'Escape' && filtersExpanded && !open) {event.preventDefault();event.stopPropagation();closeFilters();}}}>
+      <div className="property-search-body">
+        <div className={`property-search-toolbar ${isOffPlan ? 'is-off-plan' : ''}`}>
+          <div className="property-search-location">
+            <MapPin size={17}/>
+            <input type="search" aria-label="Search properties" list="property-search-locations" value={value.query || (value.location !== 'All' ? value.location : '')}
+              onChange={event => {const text=event.target.value;onChange(locations.includes(text) && text !== 'All' ? {location:text,query:''} : {location:'All',query:text});}}
+              placeholder="Location or keyword"/>
+            <datalist id="property-search-locations">{locations.filter(location => location !== 'All').map(location => <option key={location} value={location}/>)}</datalist>
+          </div>
+          {isMobile ? <>
+            <button ref={filterButton} type="button" className={`property-search-filter-toggle ${filtersExpanded ? 'is-open' : ''}`}
+              aria-label="Filters" title="Filters" aria-expanded={filtersExpanded} aria-controls={filterPanelId}
+              onClick={() => {if (filtersExpanded) closeFilters();else setFiltersExpanded(true);}}>
+              <SlidersHorizontal size={20} aria-hidden="true"/>
+              {appliedFilterCount > 0 && <span className="property-search-filter-count" aria-hidden="true">{appliedFilterCount}</span>}
+            </button>
+            <div id={filterPanelId} className="property-search-filter-panel" role="group" aria-label="Property filters" hidden={!filtersExpanded}>
+              <div className="property-search-filter-heading">
+                <h3>Filters</h3>
+                <button type="button" onClick={closeFilters} aria-label="Close filters"><X size={18} aria-hidden="true"/></button>
+              </div>
+              {filterControls}
+              {mediaControls}
+              {isOffPlan && (handoverYears.length === 0 || paymentPlans.length === 0) && <p className="property-search-note">Some listings do not include handover dates or payment plans.</p>}
+            </div>
+          </> : filterControls}
+          <div className="property-search-actions">
+            <button type="submit" className="property-search-submit" disabled={Boolean(open && error)}>Search</button>
+            <button type="button" className="property-search-ai" onClick={onDescriptionSearch}><Sparkles size={14} aria-hidden="true"/>AI Search</button>
+          </div>
         </div>
-        <div className="property-search-grid property-search-refinements">
-          {isOffPlan ? <>{priceControl}{areaControl}{amenityControl}<div className="property-search-sort-summary">{sortControl}{resultSummary}</div></> : commercialOnly ? <>{amenityControl}{sortControl}{resultSummary}{mediaControls}</> : <>{areaControl}{amenityControl}{sortControl}{resultSummary}{mediaControls}</>}
+        <div className="property-search-meta">
+          {resultSummary}{!isMobile && mediaControls}
+          {!isMobile && isOffPlan && (handoverYears.length === 0 || paymentPlans.length === 0) && <p className="property-search-note">Some listings do not include handover dates or payment plans.</p>}
         </div>
-        {isOffPlan && <div className="property-search-context-row">{mediaControls}{(handoverYears.length === 0 || paymentPlans.length === 0) && <p className="property-search-note">Some listings do not include handover dates or payment plans.</p>}</div>}
         {activeChips.length > 0 && <div className="property-search-active">{activeChips.map(chip => <button key={chip.key} type="button" onClick={chip.remove} aria-label={`Remove ${chip.label}`}><span>{chip.label}</span><X size={12}/></button>)}</div>}
       </div>
-      <div className="property-search-assist"><div><Sparkles size={21}/><span>Find a home that fits what you have in mind.</span></div><button type="button" aria-label="AI Search" onClick={onDescriptionSearch}>Search by description<ArrowRight size={18}/></button></div>
     </form>
   );
 }

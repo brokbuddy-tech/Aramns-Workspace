@@ -53,6 +53,15 @@ No BrokBuddy settings, migrations, publication switches, credentials, or deploym
 
 ## Request and data handling
 
+Contact submissions also use the current optional `nationality`,
+`transactionType` and `specialNotes` public fields. Special Notes are unique,
+bounded `{key, label, value}` answers validated by the template proxy; they carry
+visitor type, sector, completion/purpose/occupants and the other displayed answers.
+The readable `message` is retained for API versions predating those fields.
+See [Contact adversarial/integration verification](CONTACT_TEST_AUDIT.md) for the
+source-schema compatibility check, reproduced failures, coverage and live-read
+limits.
+
 Node alone requests:
 
 ```text
@@ -61,9 +70,20 @@ GET /api/public/broker-template/{configured-slug}/listings?page=1&limit=12
 GET /api/public/broker-template/{configured-slug}/listings/{listing-id}
 ```
 
-Only these server reads carry `X-BrokBuddy-Broker-Code`. They use no-store, bounded timeouts and redirect rejection. Server responses select public fields, validate the configured slug and broker ID in both listing ownership shapes, and never include upstream errors or the raw credential. A changing, duplicate, truncated, malformed or unauthorized feed fails closed. The broker profile and first inventory page are requested concurrently. Inventory requests use the API-supported 100-listing page size; the visible UI still starts with six cards and keeps its existing Load More behavior. All active listing pages are validated and loaded before existing local filters, sorting, search and load-more operate. No partial inventory is presented as a complete feed. The profile preview is not used as the inventory database. No organization or sibling broker fallback exists.
+All broker API reads, enquiries, property views and quick-link writes carry `X-BrokBuddy-Broker-Code` from Node only. They use no-store, bounded timeouts and redirect rejection. Server responses select public fields, validate the configured slug and broker ID in both listing ownership shapes, and never include upstream errors or the raw credential. A changing, duplicate, truncated, malformed or unauthorized feed fails closed. The broker profile and first inventory page are requested concurrently. Inventory requests use the API-supported 100-listing page size; the visible UI still starts with six cards and keeps its existing Load More behavior. All active listing pages are validated and loaded before existing local filters, sorting, search and load-more operate. No partial inventory is presented as a complete feed. The profile preview is not used as the inventory database. No organization or sibling broker fallback exists.
 
 Browser reads use `/api/site`; direct `/property/:id` and `/properties/:id` visits fetch the dedicated scoped detail endpoint. Missing details have the existing not-found view; feed/auth failures have the neutral unavailable view. Broker navigation and footer are absent in the unavailable state, with non-identifying, non-indexable metadata. Focus, page restore and a 60-second check revalidate the feed. A healthy background recheck retains form state; failures clear public feed state. Previously downloaded images cannot be retracted by the site.
+
+The loading screen reads `GET /api/branding` independently while the inventory is
+loading. This same-origin, no-store endpoint validates the authenticated broker
+profile and returns only `{name, tagline}`; the tagline comes from the existing
+public `agent.title` (BrokBuddy's profile tagline). Later route loads reuse the
+already loaded agent. A branding failure leaves neutral portfolio text and never
+blocks the main feed. No broker identity is hardcoded or persisted in browser
+storage, and no minimum loading delay is introduced. The English lettering uses
+original Novalux Majlis geometric Latin display lettering and the locally hosted
+Mirza tagline font under `public/fonts/`. Mirza includes its OFL license; the
+original Majlis outlines can be rebuilt with `scripts/build-majlis-font.py`.
 
 Profile biography and listing descriptions support HTML, escaped HTML, Markdown and plain text through `marked` plus DOMPurify. Executable elements, event handlers, inline styles and unsafe links are stripped. Rich text inherits the existing content containers' typography. Google Maps popup interpolation is escaped. Image URLs come from the API; gallery identity/URL deduplication excludes documents and floor-plan/360 assets. Map pins use actual coordinates only.
 
@@ -145,7 +165,7 @@ Every active contact, broker consultation, valuation and viewing form posts JSON
 POST /api/public/broker/{configured-slug}/inquiry
 ```
 
-The POST receives the idempotency key and **never** the feed code. Appointment date, time, transport preferences and valuation address are carried in `message`, not invented API fields. Property requests retain `listingId`. A successful UI requires a valid API `inquiry.id` confirmation. Failed submissions keep entered values; unchanged retries retain their key, and changing the payload creates a fresh key. A viewing request is an enquiry, not a confirmed calendar appointment.
+The POST receives the idempotency key and the private `X-BrokBuddy-Broker-Code` header. Neither value is added to enquiry JSON metadata. The inspected legacy backend route does not yet enforce this header; the backend authentication rollout must add enforcement before the end-to-end flow can be considered protected. See [the template authentication audit](TEMPLATE_AUTH_AUDIT.md). Appointment date, time, transport preferences and valuation address are carried in `message`, not invented API fields. Property requests retain `listingId`. A successful UI requires a valid API `inquiry.id` or a durable `intake.submissionId` with a recognized outcome and ownership status. This supports the existing phone-only intake contract; only `{ok: true}` reaches the browser. Failed submissions keep entered values; unchanged retries retain their key, and changing the payload creates a fresh key. A viewing request is an enquiry, not a confirmed calendar appointment.
 
 ## Unsupported information and features
 
@@ -173,3 +193,7 @@ node tests/capture-visuals.mjs
 The browser suite uses Playwright Chromium. On a fresh machine, install it with `node node_modules/@playwright/test/cli.js install chromium`. All browser-test submissions are intercepted, and server submission tests use synthetic upstream responses. They do not create real leads.
 
 Original desktop (1440×1000) and mobile (390×844) screenshots, source hashes, page/control inventories, integrated captures and comparison reports live in ignored `.verification/`. `tests/capture-visuals.mjs` reads the live feed once and freezes that verified response only in the browser test's route interception so screenshots have consistent content. It never changes the app's runtime fetching/caching behavior. The original compiled stylesheet fingerprint and all existing component className expressions are compared separately from content. See [VERIFICATION.md](VERIFICATION.md) for the completed audit and its limits.
+
+## Authentication audit and coordinated rollout
+
+See [Novalux template authentication](TEMPLATE_AUTH_AUDIT.md) for findings, server-only headers, build/output leak prevention, synthetic production-browser verification, and deployment/rollback dependencies. `npm run audit:template-auth` performs a read-only local source/history/artifact scan and reports counts without printing credentials or hashes.

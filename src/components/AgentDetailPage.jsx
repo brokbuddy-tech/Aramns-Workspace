@@ -1,10 +1,10 @@
+import {hasDisplayValue, displayValues} from '../lib/display-data.mjs';
 import {
-  Calendar,
   Check,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
   Mail,
+  MapPin,
   Phone,
   Quote, Share2,
   Star
@@ -13,6 +13,9 @@ import { useEffect, useRef, useState } from 'react';
 import PropertyCard from './PropertyCard';
 import RichText from './RichText';
 import QuickLinkCards from './QuickLinkCards';
+import ErrorPage from './ErrorPage';
+import OfficialProfileLinks from './OfficialProfileLinks';
+import './AgentProfile.css';
 import {popularAreaLinks} from '../lib/property-popularity.mjs';
 
 export default function AgentDetailPage({
@@ -75,19 +78,21 @@ export default function AgentDetailPage({
   };
 
   if (!agent) {
-    return (
-      <div className="min-h-screen bg-[#FAF8F5] pt-36 pb-20 px-6 text-center space-y-4">
-        <h2 className="font-serif text-3xl text-[#111827]">Advisor Profile Not Found</h2>
-        <p className="text-sm text-[#6B7280]">The requested advisor portfolio may have been updated or moved.</p>
-        <button
-          onClick={() => onNavigate && onNavigate('/agents')}
-          className="px-6 py-2.5 rounded-lg bg-black text-white text-xs uppercase tracking-wider font-semibold cursor-pointer"
-        >
-          View All Advisors
-        </button>
-      </div>
-    );
+    return <ErrorPage variant="advisor" embedded onNavigate={onNavigate} />;
   }
+
+  const configuredAgency=typeof agent.agency==='string' ? agent.agency.trim():'';
+  // Agency identity supplied for this profile; other brokers still require feed data.
+  const profileAgency=agent.name?.trim().toLowerCase()==='arman alam' ? 'Al Baqa Properties LLC' : '';
+  const agencyName=hasDisplayValue(configuredAgency) ? configuredAgency : profileAgency;
+  const languages=displayValues(agent.languages);
+  const experience=hasDisplayValue(agent.experience) ? String(agent.experience).replace(/^(\d+(?:\.\d+)?)\s*\+?\s*(?:years?)?$/i,'$1+ years') : '';
+  const metrics=[
+    {label:'Experience',value:experience,labelClass:'text-base sm:text-lg',valueClass:'text-base sm:text-lg font-bold text-[#111827] font-sans'},
+    {label:'License ID',value:agent.licenseId,labelClass:'text-base sm:text-lg',valueClass:'text-base sm:text-lg font-mono font-bold text-bronze block pt-0.5'},
+    {label:'Languages',value:languages.join(', '),labelClass:'text-base sm:text-lg',valueClass:'text-xs sm:text-[13px] font-semibold text-[#111827] block whitespace-normal break-words'},
+    {label:'Career Volume',value:agent.careerVolume,labelClass:'text-base sm:text-lg',valueClass:'text-base sm:text-lg font-bold text-[#111827] font-sans'},
+  ].filter(metric=>hasDisplayValue(metric.value));
 
   // Find properties belonging to this agent (for Arman Alam, represents his full exclusive portfolio)
   const agentProperties = properties.filter(p => p.agentId === agent.id && p.status === 'ACTIVE');
@@ -99,16 +104,16 @@ export default function AgentDetailPage({
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#FAF8F5] text-[#111827] pt-24 sm:pt-28 lg:pt-32 pb-24">
+    <div className="profile-page w-full min-h-screen bg-[#FAF8F5] text-[#111827] pt-24 sm:pt-28 lg:pt-32 pb-24">
       <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-20 space-y-12 sm:space-y-16">
 
         {/* 2. PROFILE HEADER (SPLIT BALANCED SECTION) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
+        <div className="profile-header grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
 
           {/* Left Column: Portrait & Direct Contact Actions */}
           <div className="lg:col-span-5 flex flex-col space-y-2.5">
             {/* Complete Portrait Container */}
-            <div className="relative h-[380px] sm:h-[420px] lg:h-[430px] w-full rounded-[16px] overflow-hidden bg-stone-200 border border-black/[0.08] shadow-md shrink-0">
+            <div className="profile-portrait relative h-[380px] sm:h-[420px] lg:h-[430px] w-full rounded-[16px] overflow-hidden bg-stone-200 border border-black/[0.08] shadow-md shrink-0">
               <img
                 src={agent.avatar || undefined}
                 alt={agent.name}
@@ -120,47 +125,47 @@ export default function AgentDetailPage({
 
               {/* Career Volume Badge */}
               <div className="absolute bottom-3.5 left-3.5 right-3.5 flex items-center justify-between text-white z-10">
-                <div>
+                {hasDisplayValue(agent.careerVolume) && (<div>
                   <span className="text-[9.5px] font-mono uppercase tracking-widest text-white/80 block">
                     Career Realization
                   </span>
                   <span className="text-[20px] sm:text-[22px] font-bold font-sans tracking-tight">
                     {agent.careerVolume}
                   </span>
-                </div>
+                </div>)}
 
-                <div className="px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-[10.5px] font-mono">
-                  {agent.experience}
-                </div>
+                {hasDisplayValue(experience) && (<div className="ml-auto px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-[10.5px] font-mono">
+                  {experience}
+                </div>)}
               </div>
             </div>
 
-            {/* Direct Contact CTAs & Consultation with tight spacing */}
-            <div className="space-y-2 pt-0.5">
-              <div className="grid grid-cols-3 gap-2">
-                <a
+            {/* Direct contact actions and official profile links. */}
+            <div className="profile-actions space-y-2 pt-0.5">
+              <div className="profile-contact-actions grid grid-cols-3 gap-2">
+                {hasDisplayValue(agent.phone) && (<a
                   href={agent.phone ? `tel:${agent.phone}` : undefined}
                   className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-white border border-black/[0.08] text-[#111827] text-[11px] sm:text-xs font-semibold uppercase tracking-wider hover:bg-stone-50 hover:border-black transition-all shadow-2xs"
-                  title="Call Agent"
+                  title="Call Agent" aria-label="Call Agent"
                 >
                   <Phone size={13} className="text-bronze shrink-0" />
                   <span className="truncate">Call Agent</span>
-                </a>
+                </a>)}
 
-                <a
+                {hasDisplayValue(agent.email) && (<a
                   href={agent.email ? `mailto:${agent.email}` : undefined}
                   className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-white border border-black/[0.08] text-[#111827] text-[11px] sm:text-xs font-semibold uppercase tracking-wider hover:bg-stone-50 hover:border-black transition-all shadow-2xs"
-                  title="Email Agent"
+                  title="Email Agent" aria-label="Email Agent"
                 >
                   <Mail size={13} className="text-bronze shrink-0" />
                   <span className="truncate">Email Agent</span>
-                </a>
+                </a>)}
 
                 <button
                   type="button"
                   onClick={handleShare}
                   className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-white border border-black/[0.08] text-[#111827] text-[11px] sm:text-xs font-semibold uppercase tracking-wider hover:bg-stone-50 hover:border-black transition-all shadow-2xs cursor-pointer"
-                  title="Share Profile"
+                  title="Share Profile" aria-label={copied ? "Profile link copied":"Share Profile"}
                 >
                   {copied ? (
                     <>
@@ -176,19 +181,12 @@ export default function AgentDetailPage({
                 </button>
               </div>
 
-              {/* Primary Schedule Consultation Button */}
-              <button
-                onClick={() => onContactAgent && onContactAgent(agent)}
-                className="w-full py-3 px-4 rounded-xl bg-[#000000] text-white text-xs font-semibold uppercase tracking-widest hover:bg-[#1E1E1E] active:scale-[0.99] transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Calendar size={14} />
-                <span>Schedule Private Consultation</span>
-              </button>
+              <OfficialProfileLinks agent={agent}/>
             </div>
           </div>
 
-          {/* Right Column: Details, Biography, Key Metrics & Social */}
-          <div className="lg:col-span-7 flex flex-col justify-between space-y-4">
+          {/* Right column: details, expanded biography and agency. */}
+          <div className="profile-details min-w-0 lg:col-span-7 flex flex-col gap-4">
 
             {/* Title & Specialization Header */}
             <div className="space-y-1.5 pb-3 border-b border-black/[0.08]">
@@ -196,125 +194,51 @@ export default function AgentDetailPage({
                 {agent.name}
               </h1>
 
-              <div className="flex flex-wrap items-center gap-2.5 text-[13px] text-[#6B7280]">
-                <span className="font-medium text-[#111827]">{agent.title}</span>
-                <span>•</span>
-                <span>{agent.region}</span>
-              </div>
+              {(hasDisplayValue(agent.title) || hasDisplayValue(agent.region)) && <div className="profile-meta flex flex-wrap items-center gap-2.5 text-[13px] text-[#6B7280]">
+                {hasDisplayValue(agent.title) && <span className="font-medium text-[#111827]">{agent.title}</span>}
+                {hasDisplayValue(agent.region) && <span className="profile-region inline-flex min-w-0 items-start gap-2.5">
+                  {hasDisplayValue(agent.title) && <span className="hidden md:inline" aria-hidden="true">•</span>}
+                  <MapPin size={14} className="mt-0.5 shrink-0 md:hidden" aria-hidden="true"/>
+                  <span className="min-w-0 break-words">{agent.region}</span>
+                </span>}
+              </div>}
             </div>
 
-            {/* 4-Item Metrics Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3.5 rounded-2xl border border-black/[0.08] shadow-xs">
-              <div className="space-y-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] block font-mono">Experience</span>
-                <span className="text-base sm:text-lg font-bold text-[#111827] font-sans">{agent.experience}</span>
-              </div>
+            {/* Only show metrics supplied by the broker. */}
+            {metrics.length > 0 && <div className="profile-metrics grid gap-3 bg-white p-3.5 rounded-2xl border border-black/[0.08] shadow-xs">
+              {metrics.map(metric=><div key={metric.label} className="min-w-0 space-y-0.5">
+                <span className={`profile-metric-label ${metric.labelClass} uppercase tracking-wider text-[#9CA3AF] block font-mono`}>{metric.label}</span>
+                <span className={`profile-metric-value ${metric.valueClass}`}>{metric.value}</span>
+              </div>)}
+            </div>}
 
-              <div className="space-y-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] block font-mono">License ID</span>
-                <span className="text-xs font-mono font-bold text-bronze block pt-0.5">{agent.licenseId}</span>
-              </div>
-
-              <div className="space-y-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] block font-mono">Languages</span>
-                <span className="text-xs sm:text-[13px] font-semibold text-[#111827] block truncate">
-                  {agent.languages?.length ? agent.languages.join(', ') : '—'}
-                </span>
-              </div>
-
-              <div className="space-y-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] block font-mono">Career Volume</span>
-                <span className="text-base sm:text-lg font-bold text-[#111827] font-sans">{agent.careerVolume}</span>
-              </div>
-            </div>
-
-            {/* Detailed Biography - IN DEDICATED SCROLLABLE CONTAINER IF LARGE */}
-            <div className="space-y-1.5">
+            {/* Biography uses the space released by the official links. */}
+            {hasDisplayValue(agent.bio) && (<div className="profile-biography space-y-1.5">
               <h3 className="text-[11px] uppercase tracking-luxury text-[#111827] font-semibold flex items-center justify-between">
                 <span>Executive Biography &amp; Practice</span>
               </h3>
-              <div
-                className="max-h-[140px] sm:max-h-[160px] overflow-y-auto pr-2 text-[13.5px] sm:text-[14px] text-[#475569] leading-[1.65] font-normal rounded-xl border border-black/[0.06] bg-white/60 p-3.5 shadow-2xs"
-                style={{ scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 transparent' }}
-              >
-                <RichText value={agent.bio} />
+              <div className="description-scroll-region" tabIndex={0} role="region" aria-label="Broker biography">
+                <RichText value={agent.bio} className="profile-bio text-[14px] text-[#475569] leading-[1.75] font-normal"/>
               </div>
-            </div>
+            </div>)}
 
-            {/* Direct Line & Agency Information (Al Baqa Properties LLC) */}
-            <div className="p-3.5 rounded-xl bg-white border border-black/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div className="space-y-0.5">
-                <span className="text-xs font-semibold text-[#111827] block">Agency: {agent.agency}</span>
-                <span className="text-[11px] text-[#6B7280]">Official Brokerage &amp; Prime Advisory Partner</span>
-              </div>
+            {(hasDisplayValue(agencyName) || hasDisplayValue(agent.phone) || hasDisplayValue(agent.email)) && <div className="profile-agency p-3.5 rounded-xl bg-white border border-black/[0.08] flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5">
+              {hasDisplayValue(agencyName) && <div className="min-w-0 w-full space-y-0.5 sm:w-auto">
+                <span className="text-base sm:text-lg font-semibold text-[#111827] block whitespace-normal break-words">Agency: {agencyName}</span>
+              </div>}
+              {(hasDisplayValue(agent.phone) || hasDisplayValue(agent.email)) && <div className="profile-direct-links flex min-w-0 flex-wrap items-center gap-3 text-base sm:text-lg font-mono">
+                {hasDisplayValue(agent.phone) && <a href={`tel:${agent.phone}`} className="text-bronze font-bold hover:underline">{agent.phone}</a>}
+                {hasDisplayValue(agent.phone) && hasDisplayValue(agent.email) && <span>•</span>}
+                {hasDisplayValue(agent.email) && <a href={`mailto:${agent.email}`} className="min-w-0 break-all text-[#111827] hover:underline">{agent.email}</a>}
+              </div>}
+            </div>}
 
-              <div className="flex items-center gap-3 text-xs font-mono">
-                <a href={agent.phone ? `tel:${agent.phone}` : undefined} className="text-bronze font-bold hover:underline">
-                  {agent.phone}
-                </a>
-                <span>•</span>
-                <a href={agent.email ? `mailto:${agent.email}` : undefined} className="text-[#111827] hover:underline">
-                  {agent.email}
-                </a>
-              </div>
-            </div>
-
-            {/* Social & Portal Connectivity */}
-            <div className="space-y-1.5 pt-0.5">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#9CA3AF] block">Official Channels:</span>
-              <div className="flex flex-wrap items-center gap-2">
-                <a
-                  href={agent.socialLinks?.facebook}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
-                >
-                  <span>Facebook</span>
-                  <ExternalLink size={11} className="text-[#9CA3AF]" />
-                </a>
-                <a
-                  href="https://www.propertyfinder.ae/en/agent/arman-alam-467643"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
-                >
-                  <span>Property Finder</span>
-                  <ExternalLink size={11} className="text-[#9CA3AF]" />
-                </a>
-                <a
-                  href="https://www.bayut.com/brokers/arman-alam-2851979.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
-                >
-                  <span>Bayut</span>
-                  <ExternalLink size={11} className="text-[#9CA3AF]" />
-                </a>
-                <a
-                  href={agent.socialLinks?.linkedin}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
-                >
-                  <span>LinkedIn</span>
-                  <ExternalLink size={11} className="text-[#9CA3AF]" />
-                </a>
-                <a
-                  href={agent.socialLinks?.instagram}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-[#111827] hover:border-black transition-colors flex items-center gap-1.5 shadow-2xs"
-                >
-                  <span>Instagram</span>
-                  <ExternalLink size={11} className="text-[#9CA3AF]" />
-                </a>
-              </div>
-            </div>
+            {agentProperties.length > 0 && <div className="profile-area-links">
+              <QuickLinkCards areas={popularAreaLinks(agentProperties, {clicks:quickLinkClicks})}/>
+            </div>}
 
           </div>
         </div>
-
-        {agentProperties.length > 0 && <QuickLinkCards areas={popularAreaLinks(agentProperties, {clicks:quickLinkClicks})} />}
 
         {/* 3. AGENT'S ACTIVE LISTINGS GRID */}
         <div className="pt-8 space-y-8 border-t border-black/[0.08]">

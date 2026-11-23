@@ -1,3 +1,4 @@
+import {hasDisplayValue} from '../lib/display-data.mjs';
 import { ExternalLink, Mail, MapPin, Phone } from 'lucide-react';
 import { AGENTS } from '../data/agents';
 
@@ -34,7 +35,7 @@ const XIcon = ({ size = 14 }) => (
   </svg>
 );
 
-export default function Footer({ onNavigate, onContactClick, onScheduleClick }) {
+export default function Footer({ onNavigate, onContactClick, onScheduleClick, reviewAvailable=false }) {
   const handleNav = (path) => {
     if (path.startsWith('#')) {
       const el = document.querySelector(path);
@@ -70,20 +71,20 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
             <div className="space-y-3 pt-1">
               {/* Row 1: Contact Icons (Phone, Mail, Location) */}
               <div className="flex items-center gap-3">
-                <a
+                {hasDisplayValue(AGENTS[0]?.phone) && <a
                   href={AGENTS[0]?.phone ? `tel:${AGENTS[0].phone}` : undefined}
                   title="Call Us"
                   className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:bg-neutral-200 hover:scale-105 active:scale-95 transition-all shadow-sm"
                 >
                   <Phone size={16} />
-                </a>
-                <a
+                </a>}
+                {hasDisplayValue(AGENTS[0]?.email) && <a
                   href={AGENTS[0]?.email ? `mailto:${AGENTS[0].email}` : undefined}
                   title="Email Concierge"
                   className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:bg-neutral-200 hover:scale-105 active:scale-95 transition-all shadow-sm"
                 >
                   <Mail size={16} />
-                </a>
+                </a>}
                 <button
                   type="button"
                   onClick={() => handleNav('#neighborhoods')}
@@ -146,7 +147,7 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
           </div>
 
           {/* Right Section: Navigation, Portals, Discover in a Single Row */}
-          <div className="md:col-span-6 lg:col-span-7 grid grid-cols-3 gap-2.5 sm:gap-8 lg:gap-16 w-full md:w-auto md:flex md:justify-end">
+          <div className="footer-link-columns md:col-span-6 lg:col-span-7 grid grid-cols-3 gap-2.5 sm:gap-8 lg:gap-16 w-full md:w-auto md:flex md:justify-end">
 
             {/* Column 1: Navigation */}
             <div className="space-y-3 sm:space-y-4 min-w-0">
@@ -211,10 +212,12 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
                     href="https://www.propertyfinder.ae/en/agent/arman-alam-467643"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-white transition-colors flex items-center gap-1 group cursor-pointer"
+                    className="hover:text-white transition-colors group cursor-pointer"
                   >
-                    <span className="truncate">Property Finder</span>
-                    <ExternalLink size={10} className="text-[#71717A] group-hover:text-white transition-colors shrink-0" />
+                    Property{' '}
+                    <span className="inline-block whitespace-nowrap">
+                      Finder<ExternalLink size={10} className="ml-1 inline-block align-baseline text-[#71717A] group-hover:text-white transition-colors" aria-hidden="true" />
+                    </span>
                   </a>
                 </li>
 
@@ -255,6 +258,12 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
                     Private Viewing
                   </button>
                 </li>
+                {reviewAvailable && <li>
+                  <a href="/write-a-review" className="inline-flex min-h-11 items-center text-left hover:text-white transition-colors"
+                    onClick={event=>{if(onNavigate && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {event.preventDefault();onNavigate('/write-a-review');}}}>
+                    Write a review
+                  </a>
+                </li>}
               </ul>
             </div>
 
@@ -283,9 +292,9 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
           </svg>
 
           {/* License ID on Mobile - Placed directly below the Arman Alam text */}
-          <div className="sm:hidden text-center font-light text-xs text-[#71717A] mt-3 tracking-wider">
+          {hasDisplayValue(AGENTS[0]?.licenseId) && <div className="sm:hidden text-center font-light text-xs text-[#71717A] mt-3 tracking-wider">
             Licensed ID - {AGENTS[0]?.licenseId}
-          </div>
+          </div>}
         </div>
 
         {/* Divider line below Arman Alam and Mobile License ID */}
@@ -306,9 +315,9 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick }) 
             />
           </a>
 
-          <div className="hidden sm:block text-right font-light">
+          {hasDisplayValue(AGENTS[0]?.licenseId) && <div className="hidden sm:block text-right font-light">
             Licensed ID - {AGENTS[0]?.licenseId}
-          </div>
+          </div>}
         </div>
 
         {/* Centered Attribution / Credit Line */}

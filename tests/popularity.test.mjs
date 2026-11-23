@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
-import {popularAreaLinks, listingAreaId, trackVisibleProperty, trackQuickLinkClick} from '../src/lib/property-popularity.mjs';
+import {popularAreaLinks, listingAreaId, listingNeighborhood, quickLinkAreaId, trackVisibleProperty, trackQuickLinkClick} from '../src/lib/property-popularity.mjs';
 import {compareListingActivity} from '../src/lib/property-filters.mjs';
 import {createApiHandler} from '../server/http.mjs';
 import {createBrokerClient} from '../server/brokbuddy.mjs';
@@ -26,11 +26,11 @@ test('quick links start by listing count, then use card clicks independently of 
   assert.equal(tied[0].id,marina);assert.equal(tied[0].clickCount,7);
   assert.equal(popularAreaLinks(rows,{clicks:[{id:palm,clickCount:-1} ]})[0].id,marina);
 });
-test('area identity separates cities, uses supplied IDs, and supports city-only UAE listings',()=>{
-  const rows=[property('a',{neighborhood:'Central',city:'Dubai'}),property('b',{neighborhood:'Central',city:'Ajman'}),property('c',{neighborhood:'',city:'Sharjah',country:'AE'}),property('d',{neighborhood:'London',country:'GB'}),property('e',{areaId:' area-1 ',neighborhood:'Stable'})];
+test('area identity separates cities, uses supplied IDs, and excludes city-only quick links',()=>{
+  const rows=[property('a',{neighborhood:'Central',city:'Dubai'}),property('b',{neighborhood:'Central',city:'Ajman'}),property('c',{neighborhood:'',city:'Sharjah',country:'AE'}),property('d',{neighborhood:'London',country:'GB'}),property('e',{areaId:' area-1 ',neighborhood:'Stable'}),property('f',{neighborhood:' ajman ',city:'Ajman'}),property('g',{neighborhood:undefined})];
   const areas=popularAreaLinks(rows);
-  assert.equal(areas.length,4);assert.equal(new Set(areas.map(area=>area.id)).size,4);
-  assert.equal(areas.find(area=>area.name==='Sharjah').listingCount,1);
+  assert.equal(areas.length,3);assert.equal(new Set(areas.map(area=>area.id)).size,3);
+  assert.equal(areas.some(area=>['Sharjah','Ajman','Dubai'].includes(area.name)),false);
   assert.equal(areas.find(area=>area.name==='Stable').id,'area-1');
   const href=popularAreaLinks(rows,{search:'sort=price-asc&page=3&q=waterfront&areaId=old&location=Old'})[0].href;
   const params=new URL(href,'https://site.example').searchParams;
@@ -46,6 +46,23 @@ test('card tracking sends one navigation-safe event and skips hidden/preview con
   doc.visibilityState='hidden';await trackQuickLinkClick('area-1',options);
   doc.visibilityState='visible';doc.location.search='?preview=1';await trackQuickLinkClick('area-1',options);
   assert.equal(calls.length,1);
+});
+test('legacy city communities use named address districts without merging areas or upstream analytics',()=>{
+  const rows=[
+    property('a',{city:'Ajman',neighborhood:'Ajman',location:'CGFM+676 - Al Jerf Industrial 3 - Ajman - United Arab Emirates'}),
+    property('b',{city:'Ajman',neighborhood:'Ajman',location:'CGGR+W7R - Al Jerf Industrial 3 - Ajman - United Arab Emirates'}),
+    property('c',{city:'Ajman',neighborhood:'Ajman',location:'9FWR+QXX Al Jurf - Al Jerf 2 - Ajman - United Arab Emirates'}),
+    property('d',{city:'Ajman',neighborhood:'Ajman',location:'1 University Street'}),
+  ];
+  const areas=popularAreaLinks(rows,{clicks:[{id:listingAreaId(rows[0]),clickCount:100}]});
+  assert.deepEqual(areas.map(area=>[area.name,area.listingCount]),[['Al Jerf Industrial 3',2],['Al Jerf 2',1]]);
+  assert.equal(listingNeighborhood(rows[3]),'');
+  for(const area of areas) {
+    assert.equal(area.trackable,false);assert.equal(area.clickCount,0);
+    const id=new URL(area.href,'https://site.example').searchParams.get('areaId');
+    assert.equal(rows.filter(row=>quickLinkAreaId(row)===id).length,area.listingCount);
+  }
+  assert.equal(listingNeighborhood(property('e',{location:'Some address - Dubai'})),'Dubai Marina');
 });
 test('detail tracking waits two visible seconds, cancels hidden/unmounted pages, and absorbs failures',async()=>{
   const listeners=new Map();let callback,delay,cancelled=0,calls=0;

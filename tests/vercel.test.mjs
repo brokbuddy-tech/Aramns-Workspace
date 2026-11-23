@@ -35,6 +35,12 @@ test('Vercel entry serves scoped API reads and raw enquiry streams without a lis
   assert.equal(site.body.properties.length, 2);
   assert.equal(site.headers['cache-control'], 'no-store');
   assert.ok(!JSON.stringify(site.body).includes(env.BROKBUDDY_BROKER_CODE));
+  const branding = await call('/api/branding');
+  assert.equal(branding.status, 200);
+  assert.deepEqual(branding.body, {name:'Test Broker',tagline:'Property Consultant'});
+  assert.equal(branding.headers['cache-control'], 'no-store');
+  assert.equal((await call('/api/branding?slug=other')).status, 400);
+  assert.equal((await call('/api/branding', {method:'POST'})).status, 405);
   const detail = await call('/api/site?listingId=listing-2');
   assert.equal(detail.status, 200);
   assert.ok(upstream.calls.some(({url}) => url.pathname.endsWith('/listings/listing-2')));
@@ -46,7 +52,7 @@ test('Vercel entry serves scoped API reads and raw enquiry streams without a lis
   assert.equal((await call('/api/inquiries', {method: 'POST', payload})).status, 200);
   const post = upstream.calls.find(({options}) => options.method === 'POST');
   assert.equal(post.options.headers['idempotency-key'], 'vercel-enquiry-test-key');
-  assert.equal(post.options.headers['X-BrokBuddy-Broker-Code'], undefined);
+  assert.equal(post.options.headers['X-BrokBuddy-Broker-Code'], env.BROKBUDDY_BROKER_CODE);
   assert.equal((await call('/api/inquiries', {method: 'POST', payload,
     headers: {origin: 'https://other.example'}})).status, 403);
   assert.equal((await call('/api/inquiries', {method: 'POST', payload: '{'})).status, 400);

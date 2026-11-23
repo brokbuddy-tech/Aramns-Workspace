@@ -1,5 +1,5 @@
 import React, {useEffect, useId, useMemo, useRef, useState} from 'react';
-import {ChevronLeft, ChevronRight, Grid2X2, ImageOff, Images, X, ZoomIn, ZoomOut} from 'lucide-react';
+import {ChevronLeft, ChevronRight, Grid2X2, ImageOff, X, ZoomIn, ZoomOut} from 'lucide-react';
 import './PropertyPhotoGallery.css';
 
 const EMPTY_PHOTOS = [];
@@ -25,6 +25,8 @@ export default function PropertyPhotoGallery({images = EMPTY_PHOTOS, title}) {
   const headingId = useId();
   const instructionsId = useId();
   const photoCount = photos.length;
+  const previewPhotos = photos.slice(0,4);
+  const remainingPhotos = photoCount - previewPhotos.length;
   const current = Math.min(activeIndex, Math.max(0, photoCount - 1));
 
   const openGallery = (index = current) => {
@@ -85,31 +87,32 @@ export default function PropertyPhotoGallery({images = EMPTY_PHOTOS, title}) {
       ) : (
         <>
           <div className="property-photo-hero">
-            <button type="button" className="property-photo-hero-image" onClick={() => openGallery()} aria-label="Open photo gallery">
+            <button type="button" className="property-photo-hero-image" onClick={() => openGallery()} aria-label={photoCount === 1 ? 'View all photos (1)' : 'Open photo gallery'}>
               <GalleryImage src={photos[current]} alt={title} fetchPriority="high" />
+              {photoCount === 1 && <span className="property-photo-single-link">View all photos</span>}
             </button>
             <span className="property-photo-count">Photo {current + 1} of {photoCount}</span>
           </div>
           {photoCount > 1 && (
             <div className="property-photo-preview" aria-label="Photo previews" style={{gridTemplateColumns:`repeat(${Math.min(photoCount,4)}, minmax(0, 1fr))`}}>
-              {photos.slice(0,4).map((src, index) => {
+              {previewPhotos.map((src, index) => {
+                const isLastPreview = index === previewPhotos.length - 1;
                 return (
                   <button type="button" key={src}
-                    onClick={() => selectPhoto(index)}
-                    aria-label={`Preview photo ${index + 1}`}
-                    aria-pressed={current === index}
-                    className={`property-photo-preview-button ${current === index ? 'is-selected' : ''}`}>
+                    onClick={() => isLastPreview ? openGallery() : selectPhoto(index)}
+                    aria-label={isLastPreview ? `View all photos (${photoCount})` : `Preview photo ${index + 1}`}
+                    aria-pressed={isLastPreview ? undefined : current === index}
+                    className={`property-photo-preview-button ${isLastPreview ? 'property-photo-preview-all' : current === index ? 'is-selected' : ''}`}>
                     <GalleryImage src={src} alt="" loading="lazy" />
+                    {isLastPreview && <span className="property-photo-more" aria-hidden="true">
+                      {remainingPhotos > 0 && <span className="property-photo-remaining">+{remainingPhotos}</span>}
+                      <span className="property-photo-more-label">View all photos</span>
+                    </span>}
                   </button>
                 );
               })}
             </div>
           )}
-          <div className="property-photo-actions">
-            <button type="button" className="property-photo-open" onClick={() => openGallery()} aria-label={`View all photos (${photoCount})`}>
-              <Images size={17} /><span>View all photos</span><span className="property-photo-total">{photoCount}</span>
-            </button>
-          </div>
         </>
       )}
 

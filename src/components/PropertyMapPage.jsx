@@ -1,3 +1,5 @@
+import {hasDisplayValue, propertySummaryMetrics} from '../lib/display-data.mjs';
+import {displayPropertyLocation} from '../lib/property-presentation.mjs';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {useGoogleMaps, validCoordinates} from '../lib/google-maps';
 import { 
@@ -154,6 +156,7 @@ export default function PropertyMapPage({
       const marker = new sdk.AdvancedMarkerElement({
         map, position: property.coordinates, content: pin, title: property.title,
       });
+      const popupDetails=[...propertySummaryMetrics(property).map(metric=>metric.text),displayPropertyLocation(property)].filter(hasDisplayValue);
       const popupHtml = `
         <div class="flex items-center gap-3.5 p-3.5 min-w-[310px] sm:min-w-[340px] max-w-[360px] bg-white rounded-2xl relative select-none font-sans">
           <button 
@@ -180,13 +183,8 @@ export default function PropertyMapPage({
               Starting ${escapeHtml(shortPrice)}
             </div>
             
-            <div class="text-[11px] text-gray-500 font-medium mt-0.5 flex items-center gap-1.5">
-              <span>${property.sqft ? property.sqft.toLocaleString() + ' ft²' : ''}</span>
-              ${property.beds ? `<span>•</span><span>${escapeHtml(property.beds)} Beds</span>` : ''}
-              <span>•</span>
-              <span class="truncate max-w-[90px]">${escapeHtml(property.neighborhood)}</span>
-            </div>
-            
+            ${popupDetails.length ? `<div class="text-[11px] text-gray-500 font-medium mt-0.5 flex items-center gap-1.5">${popupDetails.map(text=>`<span>${escapeHtml(text)}</span>`).join('<span>•</span>')}</div>` : ''}
+
             <button 
               id="popup-view-btn-${property.id}"
               type="button"
@@ -639,18 +637,16 @@ export default function PropertyMapPage({
                         <h4 className="text-[13px] font-bold text-gray-900 group-hover:text-black line-clamp-1 leading-snug">
                           {property.title}
                         </h4>
-                        <p className="text-[11px] text-gray-500 line-clamp-1 mt-0.5">
-                          {property.location}
-                        </p>
+                        {displayPropertyLocation(property) && <p className="text-[11px] text-gray-500 line-clamp-1 mt-0.5">
+                          {displayPropertyLocation(property)}
+                        </p>}
                       </div>
 
-                      <div className="flex items-center gap-2 text-[10.5px] text-gray-600 font-medium my-0.5">
-                        <span>{property.beds} Beds</span>
-                        <span>&bull;</span>
-                        <span>{property.baths} Baths</span>
-                        <span>&bull;</span>
-                        <span>{property.sqft ? property.sqft.toLocaleString() + ' sqft' : ''}</span>
-                      </div>
+                      {propertySummaryMetrics(property).length > 0 && <div className="flex flex-wrap items-center gap-2 text-[10.5px] text-gray-600 font-medium my-0.5">
+                        {propertySummaryMetrics(property).map((metric,index)=><React.Fragment key={metric.key}>
+                          {index > 0 && <span>&bull;</span>}<span>{metric.text}</span>
+                        </React.Fragment>)}
+                      </div>}
 
                       <div className="flex items-center justify-between pt-1 border-t border-gray-100">
                         <div className="text-[13px] font-extrabold text-black">
@@ -860,9 +856,9 @@ export default function PropertyMapPage({
                     <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-black text-white">
                       {activeProperty.marketCategory || 'Luxury'}
                     </span>
-                    <span className="text-[10px] text-gray-500 font-medium truncate">
-                      {activeProperty.neighborhood || activeProperty.location}
-                    </span>
+                    {displayPropertyLocation(activeProperty) && <span className="text-[10px] text-gray-500 font-medium truncate">
+                      {displayPropertyLocation(activeProperty)}
+                    </span>}
                   </div>
                   <h4 className="text-[12px] font-bold text-gray-900 leading-snug truncate mt-0.5">
                     {activeProperty.title}
@@ -870,9 +866,9 @@ export default function PropertyMapPage({
                   <div className="text-[13px] font-extrabold text-black mt-0.5">
                     {activeProperty.priceFormatted}
                   </div>
-                  <div className="text-[10px] text-gray-500 font-medium">
-                    {activeProperty.sqft ? activeProperty.sqft.toLocaleString() + ' ft²' : ''} &bull; {activeProperty.beds} Beds &bull; {activeProperty.baths} Baths
-                  </div>
+                  {propertySummaryMetrics(activeProperty).length > 0 && <div className="text-[10px] text-gray-500 font-medium">
+                    {propertySummaryMetrics(activeProperty).map(metric=>metric.text).join(' • ')}
+                  </div>}
                   <button
                     type="button"
                     onClick={() => onNavigate && onNavigate(`/property/${activeProperty.id}`)}

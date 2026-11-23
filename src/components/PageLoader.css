@@ -1,0 +1,59 @@
+@font-face {
+  font-family: 'Novalux Majlis';
+  src: url('/fonts/majlis/majlis-regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Mirza';
+  src: url('/fonts/mirza/mirza-regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+.page-loader { position: relative; display: grid; place-items: center; min-height: 100svh; width: 100%; padding: 56px 28px; overflow: hidden; background: radial-gradient(ellipse at 50% 42%,#ede0c67a,transparent 62%),#f8f4eb; color: #3d493b; }
+.page-loader-frame { position: absolute; inset: 20px; border: 1px solid #b79a6738; pointer-events: none; }
+.page-loader-frame::before, .page-loader-frame::after { content: ''; position: absolute; width: 7px; height: 7px; background: #b79a67; transform: rotate(45deg); opacity: .6; }
+.page-loader-frame::before { top: -4px; left: -4px; }
+.page-loader-frame::after { bottom: -4px; right: -4px; }
+.page-loader-content { width: 100%; max-width: 900px; text-align: center; }
+.page-loader-scene { width: clamp(170px,23vh,230px); max-width: 58vw; margin: 0 auto 14px; animation: page-loader-arrive 1.2s ease-out both; }
+.page-loader-signature { animation: page-loader-ink 1.4s cubic-bezier(.2,.65,.3,1) both; }
+.page-loader-name { margin: 0; padding: .06em .08em; font-family: 'Novalux Majlis', 'Mirza', Georgia, serif; font-size: clamp(68px,9.4vw,132px); font-weight: 400; line-height: 1.08; letter-spacing: -.012em; word-spacing: .08em; overflow-wrap: anywhere; color: #876431; }
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .page-loader-name { background: linear-gradient(110deg,#72522c 12%,#ae864d 36%,#d6bb80 46%,#8c6836 56%,#72522c 75%); background-size: 250% 100%; background-clip: text; -webkit-background-clip: text; color: transparent; animation: page-loader-gild 5.5s ease-in-out infinite; }
+}
+.page-loader-name--pending { font-size: clamp(42px,6vw,76px); }
+.page-loader-flourish { display: block; width: clamp(150px,25vw,235px); height: 24px; margin: 0 auto 3px; stroke: #b8965b; stroke-width: .85; stroke-linecap: round; }
+.page-loader-flourish-diamond { fill: #b8965b; stroke: none; }
+.page-loader-tagline { margin: 0 auto; max-width: 540px; font-family: 'Mirza', Georgia, serif; font-size: clamp(22px,2.2vw,28px); font-weight: 400; line-height: 1.4; color: #827052; text-wrap: balance; overflow-wrap: anywhere; }
+.page-loader-progress { position: relative; width: 128px; height: 1px; margin: 32px auto 17px; background: #b79a6738; overflow: hidden; }
+.page-loader-progress > span { position: absolute; inset-block: 0; width: 48px; background: linear-gradient(90deg,transparent,#9b773e,transparent); animation: page-loader-travel 2.6s ease-in-out infinite; }
+.page-loader-status { margin: 0; color: #8c816f; font-size: 10px; letter-spacing: .12em; line-height: 1.6; }
+@keyframes page-loader-arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes page-loader-ink { from { opacity: 0; transform: translateY(9px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: translateY(0); clip-path: inset(0); } }
+@keyframes page-loader-gild { 0%,15% { background-position: 100% 50%; } 75%,100% { background-position: 0% 50%; } }
+@keyframes page-loader-travel { 0% { transform: translateX(-48px); opacity: .2; } 45%,55% { opacity: 1; } 100% { transform: translateX(128px); opacity: .2; } }
+@media (max-width: 600px) {
+  .page-loader { padding: 48px 26px; }
+  .page-loader-frame { inset: 12px; }
+  .page-loader-scene { margin-bottom: 20px; }
+  .page-loader-name { font-size: clamp(54px,15.5vw,86px); }
+  .page-loader-name--pending { font-size: 44px; }
+  .page-loader-progress { margin-top: 27px; }
+  .page-loader-status { font-size: 9px; letter-spacing: .08em; }
+}
+@media (max-height: 620px) {
+  .page-loader { padding-top: 30px; padding-bottom: 30px; }
+  .page-loader-scene { width: 120px; margin-bottom: 6px; }
+  .page-loader-name { font-size: clamp(46px,8vw,72px); }
+  .page-loader-flourish { height: 18px; }
+  .page-loader-tagline { font-size: 21px; }
+  .page-loader-progress { margin-top: 18px; margin-bottom: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-loader *, .page-loader *::before, .page-loader *::after { animation: none !important; }
+  .page-loader-progress > span { left: 40px; }
+}
