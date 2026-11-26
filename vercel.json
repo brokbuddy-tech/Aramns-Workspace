@@ -11,7 +11,7 @@
   },
   "rewrites": [
     {"source": "/api/feedback", "destination": "/api/index"},
-    {"source": "/api/feedback/:path*", "destination": "/api/index"},
+    {"source": "/api/feedback/(.*)", "destination": "/api/index"},
     {"source": "/api/site", "destination": "/api/index"},
     {"source": "/api/branding", "destination": "/api/index"},
     {"source": "/api/inquiries", "destination": "/api/index"},
