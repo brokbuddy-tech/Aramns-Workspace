@@ -116,3 +116,15 @@ test('broker agency names are mapped only from supplied public agency data',()=>
   const result=mapAgent({...agent(),...fields},env.BROKBUDDY_BROKER_PROFILE_SLUG,env.BROKBUDDY_API_BASE_URL);assert.equal(result.agency,name);assert.ok(!JSON.stringify(result).includes('private@example.test'));
  }
 });
+
+
+test('portal profiles come only from the authenticated broker branding, without placeholders',()=>{
+ const urls={propertyFinderProfileUrl:'https://www.propertyfinder.ae/en/agent/example-123',bayutProfileUrl:'https://www.bayut.com/brokers/example-456.html',dubizzleProfileUrl:'https://dubai.dubizzle.com/profile/example/'};
+ const mapped=mapAgent({...agent(),...urls},env.BROKBUDDY_BROKER_PROFILE_SLUG,env.BROKBUDDY_API_BASE_URL);
+ assert.deepEqual(mapped.portalLinks,{propertyfinder:urls.propertyFinderProfileUrl,bayut:urls.bayutProfileUrl,dubizzle:urls.dubizzleProfileUrl});
+ const blank=mapAgent(agent(),env.BROKBUDDY_BROKER_PROFILE_SLUG,env.BROKBUDDY_API_BASE_URL);
+ assert.deepEqual(Object.values(blank.portalLinks).filter(Boolean),[]);
+ for(const bayutProfileUrl of ['javascript:alert(1)','https://bayut.com.evil.test/brokers/example-123.html','https://user:password@www.bayut.com/brokers/example-123.html']) {
+  assert.equal(mapAgent({...agent(),bayutProfileUrl},env.BROKBUDDY_BROKER_PROFILE_SLUG,env.BROKBUDDY_API_BASE_URL).portalLinks.bayut,undefined);
+ }
+});

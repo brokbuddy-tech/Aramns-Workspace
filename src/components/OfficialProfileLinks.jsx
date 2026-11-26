@@ -1,4 +1,5 @@
 import {hasDisplayValue} from '../lib/display-data.mjs';
+import {portalProfileLinks} from '../lib/portal-profile-links.mjs';
 // Brand glyphs match the social marks already used by the template footer.
 const facebook='M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z';
 const linkedin='M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76a1.6 1.6 0 0 0 1.6-1.6 1.6 1.6 0 0 0-3.2 0 1.6 1.6 0 0 0 1.6 1.6m1.4 9.74v-8.37H5.06v8.37z';
@@ -8,14 +9,14 @@ const x='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 22.7
 export function BrandMark({brand}) {
   if(brand==='whatsapp' || brand==='x') return <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={brand==='whatsapp' ? whatsapp:x}/></svg>;
   if(brand==='propertyfinder' || brand==='bayut') return <img src={`/brands/${brand}.${brand==='bayut' ? 'ico':'png'}`} alt="" width="30" height="30"/>;
+  if(brand==='dubizzle') return <span aria-hidden="true" className="font-bold text-xl">d</span>;
   if(brand==='instagram') return <span className="official-instagram-mark" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></span>;
   return <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={brand==='facebook' ? facebook:linkedin}/></svg>;
 }
 export default function OfficialProfileLinks({agent}) {
   const links=[
     {brand:'facebook',name:'Facebook',href:agent.socialLinks?.facebook},
-    {brand:'propertyfinder',name:'Property Finder',href:'https://www.propertyfinder.ae/en/agent/arman-alam-467643'},
-    {brand:'bayut',name:'Bayut',href:'https://www.bayut.com/brokers/arman-alam-2851979.html'},
+    ...portalProfileLinks(agent),
     {brand:'linkedin',name:'LinkedIn',href:agent.socialLinks?.linkedin},
     {brand:'instagram',name:'Instagram',href:agent.socialLinks?.instagram},
   ].filter(({href})=>hasDisplayValue(href));

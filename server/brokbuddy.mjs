@@ -32,6 +32,14 @@ export function publicAsset(value, base) {
   } catch { return invalid(); }
 }
 const link = value => value ? publicAsset(value, 'https://invalid.example') : undefined;
+function portalLink(value, domain) {
+  if (!value || typeof value !== 'string') return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || url.username || url.password || url.port || url.pathname === '/' || !(url.hostname === domain || url.hostname.endsWith(`.${domain}`))) return undefined;
+    return url.href;
+  } catch { return undefined; }
+}
 export function mapAgent(agent, slug, base) {
   if (!record(agent) || agent.slug !== slug) return invalid();
   const officeLicenseId=string(agent.orn || (record(agent.agency) ? agent.agency.orn : ''));
@@ -46,6 +54,11 @@ export function mapAgent(agent, slug, base) {
     careerVolume: '—', region: '', agency: string(record(agent.agency) ? agent.agency.name : agent.agency).trim() || string(agent.agencyName).trim() || '—', testimonials: [], listingIds: [],
     socialLinks: {facebook:link(agent.facebook), instagram:link(agent.instagram), linkedin:link(agent.linkedin), twitter:link(agent.twitter)},
     website: link(agent.website),
+    portalLinks: {
+      propertyfinder: portalLink(agent.propertyFinderProfileUrl, 'propertyfinder.ae'),
+      dubizzle: portalLink(agent.dubizzleProfileUrl, 'dubizzle.com'),
+      bayut: portalLink(agent.bayutProfileUrl, 'bayut.com'),
+    },
   };
 }
 export function mapListing(value, agent, base) {

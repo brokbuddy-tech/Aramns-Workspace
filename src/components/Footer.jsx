@@ -1,6 +1,7 @@
 import {hasDisplayValue} from '../lib/display-data.mjs';
 import { ExternalLink, Mail, MapPin, Phone } from 'lucide-react';
 import { AGENTS } from '../data/agents';
+import {portalProfileLinks} from '../lib/portal-profile-links.mjs';
 
 /* Social Icon Components (White circle, black fill) */
 const LinkedinIcon = ({ size = 15 }) => (
@@ -36,6 +37,7 @@ const XIcon = ({ size = 14 }) => (
 );
 
 export default function Footer({ onNavigate, onContactClick, onScheduleClick, reviewAvailable=false }) {
+  const portalLinks = portalProfileLinks(AGENTS[0]);
   const handleNav = (path) => {
     if (path.startsWith('#')) {
       const el = document.querySelector(path);
@@ -190,39 +192,17 @@ export default function Footer({ onNavigate, onContactClick, onScheduleClick, re
               </ul>
             </div>
 
-            {/* Column 2: Portals (Bayut, Property Finder, Dubizzle) */}
-            <div className="space-y-3 sm:space-y-4 min-w-0">
-              <h3 className="text-[13px] sm:text-base font-medium text-white tracking-tight">
-                Portals
-              </h3>
+            {portalLinks.length > 0 && <div className="space-y-3 sm:space-y-4 min-w-0">
+              <h3 className="text-[13px] sm:text-base font-medium text-white tracking-tight">Portals</h3>
               <ul className="space-y-2 sm:space-y-3 text-[11.5px] sm:text-sm text-[#A1A1AA] font-normal">
-                <li>
-                  <a
-                    href="https://www.bayut.com/brokers/arman-alam-2851979.html"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-white transition-colors flex items-center gap-1 group cursor-pointer"
-                  >
-                    <span>Bayut</span>
-                    <ExternalLink size={10} className="text-[#71717A] group-hover:text-white transition-colors shrink-0" />
+                {portalLinks.map(({brand, name, href}) => <li key={brand}>
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center gap-1 group cursor-pointer">
+                    <span>{name}</span>
+                    <ExternalLink size={10} className="text-[#71717A] group-hover:text-white transition-colors shrink-0" aria-hidden="true" />
                   </a>
-                </li>
-                <li>
-                  <a
-                    href="https://www.propertyfinder.ae/en/agent/arman-alam-467643"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-white transition-colors group cursor-pointer"
-                  >
-                    Property{' '}
-                    <span className="inline-block whitespace-nowrap">
-                      Finder<ExternalLink size={10} className="ml-1 inline-block align-baseline text-[#71717A] group-hover:text-white transition-colors" aria-hidden="true" />
-                    </span>
-                  </a>
-                </li>
-
+                </li>)}
               </ul>
-            </div>
+            </div>}
 
             {/* Column 3: Discover */}
             <div className="space-y-3 sm:space-y-4 min-w-0">
