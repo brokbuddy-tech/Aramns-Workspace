@@ -369,7 +369,7 @@ export default function App() {
         />
       )}
 
-      {currentPath==='/' && <NativeFeedback config={feedback.config} onRefresh={feedback.refresh}/>}
+      {currentPath==='/' && <NativeFeedback config={feedback.config}/>}
 
       {/* SECTION 11: Footer (Persistent across all routes except full-screen map) */}
       {!isMap && (

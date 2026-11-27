@@ -1,0 +1,44 @@
+.review-section { width:100%; min-width:0; font-family:"Plus Jakarta Sans",Inter,system-ui,sans-serif; }
+.review-section-heading { display:flex; flex-wrap:wrap; align-items:baseline; gap:12px 24px; margin-bottom:20px; }
+.review-section-heading h2 { margin:0; font-size:clamp(1.65rem,2.8vw,2.125rem); font-weight:600; line-height:1.2; letter-spacing:-.035em; }
+.review-overview .native-summary { margin:0; }
+.review-overview .native-score { gap:10px; font-size:.75rem; }
+.review-overview .native-score strong { font-size:1.125rem; }
+.review-overview .native-score strong span { font-size:.8125rem; }
+.review-track { display:flex; align-items:flex-start; gap:20px; width:100%; max-width:100%; overflow-x:auto; padding:4px 0 8px; scroll-snap-type:x proximity; scroll-behavior:smooth; overscroll-behavior-x:contain; scrollbar-width:thin; scrollbar-color:#C5C5BF transparent; }
+.review-track:focus-visible { outline:2px solid #9E7B36; outline-offset:4px; border-radius:16px; }
+.review-card { display:flex; flex-direction:column; gap:16px; width:min(88%,400px); min-width:0; flex-shrink:0; padding:24px; border:1px solid #E5E2DB; border-radius:16px; background:#fff; box-shadow:0 3px 14px rgb(0 0 0 / 2%); scroll-snap-align:start; }
+.review-card:only-child { width:min(100%,400px); }
+.review-card-author { display:flex; align-items:center; gap:12px; }
+.review-card-avatar { display:grid; place-items:center; width:44px; height:44px; flex-shrink:0; overflow:hidden; border:1px solid #E8E2D6; border-radius:10px; background:#F5F1E8; }
+.review-card-avatar img { width:100%; height:100%; object-fit:cover; }
+.review-avatar-initials { color:#7C5E20; font-size:.8125rem; font-weight:600; }
+.review-card-identity { min-width:0; flex:1; }
+.review-card .review-card-identity h3 { margin:0; font-size:.9375rem; font-weight:600; color:#111827; line-height:1.4; letter-spacing:-.02em; overflow-wrap:anywhere; }
+.review-card-meta { margin-top:4px; color:#6B7280; font-size:.75rem; line-height:1.5; }
+.review-card-meta time { margin:0; color:inherit; font-size:inherit; }
+.review-card-mark { color:#9E7B36; flex-shrink:0; }
+.review-card-rating { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:18px; border-top:1px solid #F0EDE7; }
+.review-rating { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+.review-rating-slot { display:grid; place-items:center; width:26px; height:26px; flex-shrink:0; }
+.review-rating-slot .native-review-emoji { width:100%; height:100%; font-size:1.25rem; }
+.review-card-score { color:#7C5E20; font-size:.8125rem; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.review-card-score > span { color:#78716C; font-weight:400; }
+.review-card-quote { margin:0; color:#334155; font-size:.9375rem; line-height:1.85; letter-spacing:-.01em; white-space:pre-wrap; overflow-wrap:anywhere; }
+.review-card-details:empty { display:none; }
+.review-card-details .native-review-credit { margin:0 0 14px; color:#6B7280; font-size:.75rem; }
+.review-card-details .native-reply { margin:0; padding:16px; border:1px solid #F0EDE7; border-radius:10px; background:#FAF8F5; }
+.review-card-details .native-reply strong { color:#7C5E20; font-size:.6875rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; }
+.review-card-details .native-reply p { margin:6px 0 0; color:#64748B; font-size:.8125rem; white-space:pre-wrap; overflow-wrap:anywhere; }
+.review-scroll-controls { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+.review-section .review-scroll-controls button { display:inline-grid; place-items:center; width:44px; min-width:44px; min-height:44px; padding:0; border:1px solid #E5E2DB; border-radius:10px; background:#fff; color:#111827; }
+.review-section .review-scroll-controls button:hover:enabled { border-color:#C5B38D; background:#F5F4EF; }
+.review-section .review-scroll-controls button:disabled { background:#fff; color:#9CA3AF; opacity:.5; }
+@media(max-width:600px) {
+  .review-section-heading { gap:10px 20px; margin-bottom:20px; }
+  .review-track { gap:16px; }
+  .review-card { padding:20px; }
+  .review-card-rating { padding-top:16px; }
+  .review-card-author { gap:10px; }
+}
+@media(prefers-reduced-motion:reduce) { .review-section *, .review-section *::before,.review-section *::after { scroll-behavior:auto !important; animation:none !important; transition:none !important; } }

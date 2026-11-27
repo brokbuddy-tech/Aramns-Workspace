@@ -1,6 +1,6 @@
 # Native client reviews and video testimonials
 
-This integration adds selected, published native feedback to the home page, in the profile page's warm background, white cards, black controls and bronze accents. Existing Google/Trustpilot content remains separate. No sample reviews are loaded by this integration. Agency brokers' personal pages are excluded: native feedback is mounted only at `/`.
+This integration adds selected, published native feedback to the home page, in the profile page's warm background, white review cards, black controls and bronze accents. Existing Google/Trustpilot content remains separate. No sample reviews are loaded by this integration. Agency brokers' personal pages are excluded: native feedback is mounted only at `/`.
 
 ## Activation prerequisite
 
@@ -19,7 +19,7 @@ Never use browser-prefixed environment variables for private settings. No code/v
 ## Request and privacy behavior
 
 - `GET /api/feedback/config` returns only public form configuration. Agency broker choices contain IDs and names, without email addresses or BRNs.
-- `GET /api/feedback?kind=REVIEW&page=1&pageSize=12` and the equivalent `kind=VIDEO` request load one published page at a time. Unknown/duplicate query parameters, excessive page sizes and arbitrary URL parameters are rejected. Native summaries are labelled **Selected client reviews**, with the supplied disclosure; a missing average is never replaced by a fake score.
+- `GET /api/feedback?kind=REVIEW&page=1&pageSize=12` and the equivalent `kind=VIDEO` request load one published page at a time. Unknown/duplicate query parameters, excessive page sizes and arbitrary URL parameters are rejected. Published sections are labelled **Reviews** and **Testimonials**; backend disclosure copy is not displayed, and a missing average is never replaced by a fake score. Each section appears only when it has published items. Empty, loading or failed feeds show no heading, placeholder or spacing; if both have no items, the entire feedback area is omitted. The review submission link remains controlled by configuration availability.
 - `POST /api/feedback` accepts only the documented fields. The proxy caps the incoming stream at 2,850,000 bytes before JSON parsing, checks Origin, validates names, ratings, text, consent and photo type/size/signature, and checks an optional agency broker against fresh config. The backend remains responsible for safe image decoding, orientation, cropping and conversion.
 - The browser keeps one UUID across errors and repeated clicks, disables the form while pending, and creates a fresh UUID only after success/reset. Inputs survive errors. HTTP 202 alone produces: “Thank you. Your review has been submitted for review.” Pending records are never inserted into the published UI. Preview object URLs are revoked on close, replacement, reset, success and unmount.
 - `/api/feedback/:id/avatar` and `/api/feedback/:id/video` authenticate every media request. Browser URLs contain only validated item IDs. Video Range requests preserve successful 200/206 headers, and 416 preserves Content-Range/Accept-Ranges with an empty response body. All responses explicitly disable browser/CDN caching. Upstream storage URLs and submission IDs are omitted.
@@ -27,7 +27,7 @@ Never use browser-prefixed environment variables for private settings. No code/v
 
 The local limiter allows three distinct submission UUIDs per hour per connection IP and bounded retries for the same UUID (30 attempts/hour). It does not trust a browser-supplied forwarded IP or a resettable cookie. Its bounded state is in memory per Node process: restarts reset it, visitors behind one IP share the allowance, and multiple serverless instances do not share counters. For multiple instances or a shared reverse-proxy connection, deployment-wide visitor limits require a trusted shared limiter at the existing edge/backend. No database or dependency was introduced for rate limiting.
 
-All submitted text and business replies render through React's normal text escaping. Public backend validation/status codes are retained; private response fields and unsafe error messages are omitted. Feed and media requests use no-store, including CDN directives, so a new request sees upstream moderation changes. Already-rendered content refreshes using **Refresh reviews** or a page reload; there is no background download of every page.
+All submitted text and business replies render through React's normal text escaping. Public backend validation/status codes are retained; private response fields and unsafe error messages are omitted. Feed and media requests use no-store, including CDN directives, so a new request sees upstream moderation changes. Already-rendered content updates on page reload or pagination; there is no refresh button or background download of every page.
 
 ## Local preview and verification
 
@@ -61,6 +61,7 @@ Tests cover both scopes, credential separation/redaction, config 404, invalid/bo
 - `server/brokbuddy.mjs`, `server/http.mjs`: connect feedback to the existing client and shared Node/Vercel handler.
 - `vercel.json`, `api/index.mjs`: feedback route rewrites and raw-stream comment.
 - `src/components/NativeFeedback.jsx`, `NativeFeedback.css`: published feeds and accessible video viewer.
+- `src/components/ui/review-section.tsx`, `review-section.css`: Reviews use white cards with bronze accents, separate identity and rating rows, and visible review text. Each rating shows the matching animated face N times for a score of N, without circular borders or empty positions. Reviews and the review form share the reference face range as inline SVG: green unhappy, neutral, smiling, tongue-out and heart eyes, with matching accessible labels. Cards fit their content without a fixed minimum height; single reviews keep a compact width. Multiple reviews scroll horizontally at every breakpoint, with previous/next controls; published dates, broker credits and business replies use the live feed. Missing or failed portraits fall back to initials. The earlier pastel cards and expansion controls have been replaced. No demo identities, stock photos or new dependencies are used.
 - `src/components/ReviewForm.jsx`, `WriteReviewPage.jsx`: dedicated review page, existing photo/rating/consent validation, retry keys and pending confirmation.
 - `src/lib/feedback.js`, `feedback-config.mjs`: shared config validation and automatic availability checks.
 - `src/components/Footer.jsx`: conditional link to `/write-a-review`.
@@ -73,6 +74,6 @@ Earlier baseline validation: 72 Node tests and all 69 Playwright browser tests p
 
 The review section follows the profile page’s sans-serif headings, gutters and card borders. On phones, video cards form a wide swipeable row and the dedicated review page uses full-width rating rows and normal page scrolling. The mobile flow is checked at both 320px and 390px.
 
-The published review area keeps its selected-review label and backend disclosure without promotional taglines or duplicate disclosure text. Single-page feeds omit pagination. Testimonial cards contain only a video player and an expand control; the expanded viewer uses icon controls.
+The published areas use the headings Reviews and Testimonials and omit the backend disclosure copy. Single-page feeds omit pagination. Testimonial cards contain only a video player and an expand control; the expanded viewer uses icon controls.
 
 The dedicated review-page update passed 22 targeted Node checks, all 8 feedback browser tests and the production build. Browser tests cover the footer link, automatic outage recovery, direct route reloads, draft retention, existing moderation acknowledgement and 320px/390px form layouts; all submissions remain intercepted synthetic data.

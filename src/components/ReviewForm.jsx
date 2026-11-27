@@ -1,8 +1,8 @@
 import React, {useEffect,useRef,useState} from 'react';
 import {ArrowLeft,Camera,Check} from 'lucide-react';
 import {readFeedbackJson as readJson} from '../lib/feedback-config.mjs';
+import RatingEmoji, {RATING_LABELS as labels} from './RatingEmoji';
 import './NativeFeedback.css';
-const labels=['Very unhappy','Unhappy','Neutral','Happy','Very happy'];
 const successMessage='Thank you. Your review has been submitted for review.';
 export default function ReviewForm({config,available=true,onClose,onUnavailable}) {
   const fileInput=useRef(null),pendingRef=useRef(false),key=useRef(null);
@@ -70,7 +70,7 @@ export default function ReviewForm({config,available=true,onClose,onUnavailable}
         <fieldset className="native-rating"><legend>Your rating (required)</legend><div className="native-faces">
           {labels.map((label,index)=><label key={label} className={rating===index+1 ? 'selected':''}>
             <input type="radio" name="native-rating" value={index+1} required checked={rating===index+1} onChange={()=>setRating(index+1)} aria-label={`${index+1} ${label}`}/>
-            <span aria-hidden="true" className="native-face">{config.ratingFaces[index]}</span><span className="native-rating-label">{index+1} {label}</span><Check className="native-rating-check" size={18} aria-hidden="true"/>
+            <RatingEmoji rating={index+1} className="native-face"/><span className="native-rating-label">{index+1} {label}</span><Check className="native-rating-check" size={18} aria-hidden="true"/>
           </label>)}
         </div></fieldset>
         <div className="native-field"><label htmlFor="native-message">Your review (required)</label><textarea id="native-message" required minLength={10} maxLength={config.messageMaxLength} rows={5} placeholder="Tell us about your experience…" value={message} onChange={e=>setMessage(e.target.value)} aria-describedby="native-message-help"/>
